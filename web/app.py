@@ -256,9 +256,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         """Answer uptime monitors and link previews that only ask whether the page is there."""
-        ok = urlparse(self.path).path in ("/", "/index.html", "/healthz")
+        path = urlparse(self.path).path
+        ok = path in ("/", "/index.html", "/healthz")
         self.send_response(200 if ok else 404)
         self.send_header("Content-Type", "text/html; charset=utf-8" if ok else "application/json")
+        if path in ("/", "/index.html"):                  # the same validators a GET sends, for caches and monitors
+            _, _, etag = page_bytes()
+            self.send_header("ETag", etag)
+            self.send_header("Last-Modified", _PAGE["modified"])
         self.end_headers()
 
     def do_GET(self):
