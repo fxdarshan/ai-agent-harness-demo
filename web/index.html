@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Desk Assistant Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: a control desk. Goal bar on top; the live trace on the left, the visitor's own to-do list on the right. */
+:root {
+  --bg: #eef1f5; --surface: #ffffff; --surface-2: #f6f8fb; --ink: #16202e; --muted: #5b6676; --line: #d8dee7;
+  --accent: #2c55c9; --accent-soft: #e3eafb; --ok: #1d7a4c; --ok-soft: #dff3e8; --deny: #b42d2d; --deny-soft: #fbe3e1;
+  --warn: #9a5b00; --warn-soft: #fbeed6; --note: #6d3fb5; --note-soft: #efe6fb;
+  --f-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f141c; --surface: #171e29; --surface-2: #1c2431; --ink: #e5ebf3; --muted: #9aa6b6; --line: #2b3545;
+    --accent: #8aa8ff; --accent-soft: #1e2a49; --ok: #5fd39a; --ok-soft: #15301f; --deny: #ff8a80; --deny-soft: #3a1b1b;
+    --warn: #f0b95a; --warn-soft: #36290f; --note: #c3a4ff; --note-soft: #2b2140; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font: 15px/1.55 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem); font-weight: 700; }
+h2 { font-size: 1.15rem; font-weight: 600; }
+p { margin: 0; }
+code { font-family: var(--f-mono); font-size: 0.86em; }
+.eyebrow { font: 500 0.72rem/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 10px; }
+.lede { max-width: 70ch; color: var(--muted); }
+.lede strong { color: var(--ink); font-weight: 600; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { font: 500 0.78rem var(--f-mono); padding: 3px 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+.badge.live { color: var(--ok); border-color: var(--ok); }
+.badge.standin { color: var(--warn); border-color: var(--warn); }
+.privacy { font-size: 0.88rem; color: var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 8px 12px; max-width: 80ch; }
+
+.desk { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
+.listpick { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.listpick .label { font-weight: 600; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { font: 500 0.86rem var(--f-body); background: var(--surface); color: var(--ink); border: 0; padding: 7px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+form.goalbar { display: flex; flex-wrap: wrap; gap: 8px; }
+#goal { flex: 1 1 280px; min-width: 0; font: 1rem var(--f-mono); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); }
+#goal:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn { font: 500 0.9rem var(--f-body); border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 8px; padding: 9px 14px; cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn:focus-visible, .seg button:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chips .label { font-size: 0.85rem; color: var(--muted); }
+.chip { font: 0.82rem var(--f-mono); background: var(--surface-2); color: var(--ink); border: 1px dashed var(--line); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+.chip:hover { border-color: var(--accent); }
+.status-line { font: 0.82rem var(--f-mono); color: var(--muted); min-height: 1.3em; }
+.status-line.error { color: var(--deny); }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.count { font: 0.8rem var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.feed { list-style: none; margin: 0; padding: 10px 12px 14px; display: grid; gap: 8px; }
+.ev { display: grid; gap: 4px; padding: 10px 12px; border-radius: 9px; background: var(--surface-2); border-left: 3px solid var(--line); animation: rise .25s ease-out; }
+@keyframes rise { from { transform: translateY(5px); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ev { animation: none; } }
+.ev .row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.kind { font: 600 0.7rem/1.6 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; padding: 0 6px; border-radius: 4px; background: var(--line); color: var(--ink); }
+.part { font: 0.72rem var(--f-mono); color: var(--muted); }
+.ev .text { overflow-wrap: anywhere; }
+.ev .detail { font: 0.8rem/1.5 var(--f-mono); color: var(--muted); overflow-wrap: anywhere; }
+.ev pre { margin: 0; font: 0.8rem/1.5 var(--f-mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+.ev.start { border-left-color: var(--ink); }
+.ev.think { border-left-style: dashed; color: var(--muted); }
+.ev.model { border-left-color: var(--accent); }
+.ev.model .kind { background: var(--accent-soft); color: var(--accent); }
+.ev.tool { border-left-color: var(--ok); }
+.ev.tool .kind { background: var(--ok-soft); color: var(--ok); }
+.ev.tool.err { border-left-color: var(--warn); }
+.ev.tool.err .kind { background: var(--warn-soft); color: var(--warn); }
+.ev.gate.denied { border-left-color: var(--deny); background: var(--deny-soft); }
+.ev.gate.denied .kind { background: var(--deny); color: var(--surface); }
+.ev.gate.approved { border-left-color: var(--ok); }
+.ev.gate.approved .kind { background: var(--ok); color: var(--surface); }
+.ev.fail { border-left-color: var(--deny); }
+.ev.fail .kind { background: var(--deny-soft); color: var(--deny); }
+.retry { color: var(--warn); }
+.empty { padding: 26px 16px; color: var(--muted); text-align: center; }
+
+.ask { margin: 0 12px 12px; padding: 16px; border-radius: 10px; border: 2px solid var(--warn); background: var(--warn-soft); display: grid; gap: 10px; }
+.ask .q { font: 600 1.05rem var(--f-display); }
+.ask .q code { font-size: 0.95rem; }
+.ask .sub { font-size: 0.88rem; color: var(--ink); }
+.ask .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn.deny { background: var(--surface); border-color: var(--deny); color: var(--deny); }
+.btn.allow { background: var(--deny); border-color: var(--deny); color: var(--surface); }
+.timer { font: 0.82rem var(--f-mono); color: var(--warn); font-variant-numeric: tabular-nums; }
+
+.result { margin: 0 12px 14px; padding: 14px 16px; border-radius: 10px; border: 1px solid var(--line); display: grid; gap: 8px; }
+.pill { justify-self: start; font: 600 0.82rem var(--f-mono); padding: 3px 10px; border-radius: 999px; }
+.pill.done { background: var(--ok-soft); color: var(--ok); }
+.pill.denials { background: var(--warn-soft); color: var(--warn); }
+.pill.stopped { background: var(--deny-soft); color: var(--deny); }
+.said { font-style: italic; }
+.handover { font: 0.82rem var(--f-mono); color: var(--muted); }
+.lesson { border-top: 1px solid var(--line); padding-top: 8px; }
+
+.list { list-style: none; margin: 0; padding: 10px 12px 14px; display: grid; gap: 6px; }
+.task { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: 8px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); border: 1px solid transparent; }
+.task .id { font: 500 0.8rem var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.task .t { overflow-wrap: anywhere; }
+.task.added { border-color: var(--ok); background: var(--ok-soft); }
+.task.asked { border-color: var(--warn); background: var(--warn-soft); }
+.task.planted { border-color: var(--note); background: var(--note-soft); }
+.tag { display: inline-block; margin-left: 6px; font: 500 0.7rem var(--f-mono); padding: 0 5px; border-radius: 4px; vertical-align: 1px; }
+.tag.note { background: var(--note); color: var(--surface); }
+.tag.new { background: var(--ok); color: var(--surface); }
+.tag.ask { background: var(--warn); color: var(--surface); }
+.gone { padding: 0 16px 12px; font: 0.8rem var(--f-mono); color: var(--muted); }
+footer { color: var(--muted); font-size: 0.85rem; max-width: 80ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">AI agent harness · live</span>
+    <h1>Desk Assistant Live</h1>
+    <p class="lede">Give a to-do agent a goal in plain words. <strong>The model only asks; code decides.</strong> Adding and listing just run. Deleting cannot be undone, so the harness stops and asks <strong>you</strong>, with the real task text. No answer in time means no.</p>
+    <div class="badges" id="badges"></div>
+    <p class="privacy">Your goal is sent to the model provider. Type toy text only, never personal details. Every visitor gets their own practice list; nobody else sees it.</p>
+  </header>
+
+  <section class="desk" aria-label="Your goal">
+    <div class="listpick">
+      <span class="label">Start from</span>
+      <span class="seg" id="seeds" role="group" aria-label="Starting list"></span>
+      <button class="btn" type="button" id="reset">Restore the list</button>
+    </div>
+    <form class="goalbar" id="goalform">
+      <label for="goal" class="eyebrow" style="flex-basis:100%">Goal</label>
+      <input id="goal" name="goal" maxlength="200" autocomplete="off" placeholder="Delete the dentist task." required>
+      <button class="btn primary" type="submit" id="runbtn">Run</button>
+    </form>
+    <div class="chips" id="chips"><span class="label">Try:</span></div>
+    <p class="status-line" id="statusline" role="status"></p>
+  </section>
+
+  <div class="stage">
+    <section class="panel" aria-label="Live trace">
+      <div class="panel-head"><h2>What happens</h2><span class="count" id="stepcount"></span></div>
+      <ol class="feed" id="feed"><li class="empty">Pick a goal and press Run. Each step appears here as it happens.</li></ol>
+      <div id="ask"></div>
+      <div id="result"></div>
+    </section>
+    <section class="panel" aria-label="Your to-do list">
+      <div class="panel-head"><h2>Your to-do list</h2><span class="count" id="tally"></span></div>
+      <ul class="list" id="list"></ul>
+      <p class="gone" id="gone"></p>
+    </section>
+  </div>
+
+  <footer>Built on the learner build of <code>fxdarshan/ai-agent-harness-demo</code>. Every goal runs through the same <code>harness.run</code> as the command-line agent: the same tools, the same approval gate, a step cap, a repeat check and a cap on refusals.</footer>
+</div>
+
+<script>
+const EXAMPLES = ["Delete the dentist task.", "Tidy up my to-do list and tell me what is left.", "Add 'File taxes', then show me my list.", "Delete my 2 oldest tasks.", "Delete task 99."];
+const S = { sid: null, since: 0, running: false, timer: null, seed: "week_start", seeds: {}, start: [], added: new Set(), steps: 0, model: "" };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function api(path, body) {
+  const opt = body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {};
+  const res = await fetch(path, opt);
+  const data = await res.json().catch(() => ({ error: "The server sent an unreadable reply." }));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+  return data;
+}
+function say(text, isError) { $("statusline").textContent = text || ""; $("statusline").classList.toggle("error", !!isError); }
+
+function drawList(tasks, question) {
+  const asked = question ? (question.words.match(/^delete task (\d+)/) || [])[1] : null;
+  $("list").innerHTML = tasks.map(([id, text]) => {
+    const planted = /NOTE TO ASSISTANT|IGNORE ALL RULES/i.test(text);
+    const isNew = S.added.has(id), isAsked = asked && +asked === id;
+    const cls = ["task", planted && "planted", isNew && "added", isAsked && "asked"].filter(Boolean).join(" ");
+    const tag = isAsked ? '<span class="tag ask">waiting for you</span>' : planted ? '<span class="tag note">planted note: data, not an order</span>' : isNew ? '<span class="tag new">new</span>' : "";
+    return `<li class="${cls}"><span class="id">${id}</span><span class="t">${esc(text)}${tag}</span></li>`;
+  }).join("") || '<li class="empty">The list is empty.</li>';
+  $("tally").textContent = `${tasks.length} task${tasks.length === 1 ? "" : "s"}`;
+  const ids = new Set(tasks.map(t => t[0]));
+  const gone = S.start.filter(([id]) => !ids.has(id));
+  $("gone").textContent = gone.length ? `Deleted since the list was restored: ${gone.map(([id, t]) => `${id} (${t})`).join(", ")}` : "";
+}
+
+function evItem(cls, kind, part, text, detail) {
+  const li = document.createElement("li");
+  li.className = `ev ${cls}`;
+  li.innerHTML = `<div class="row"><span class="kind">${esc(kind)}</span><span class="part">${esc(part)}</span></div><div class="text">${text}</div>${detail ? `<div class="detail">${detail}</div>` : ""}`;
+  return li;
+}
+
+function addEvent(e) {
+  const feed = $("feed");
+  if (feed.querySelector(".empty")) feed.innerHTML = "";
+  const thinking = feed.querySelector(".ev.think");
+  if (thinking && e.kind !== "thinking") thinking.remove();
+  let li = null;
+  if (e.kind === "start") {
+    li = evItem("start", "goal", "Loop · a new run", `<b>${esc(e.goal)}</b>`, e.model === "stand-in" ? "Model: a scripted stand-in that obeys planted notes (no real AI)" : "Model: Gemini");
+  } else if (e.kind === "thinking") {
+    li = evItem("think", "model", "Loop · waiting", `Asking the model, which is shown ${e.lines} line${e.lines === 1 ? "" : "s"} of history…`);
+  } else if (e.kind === "model") {
+    S.steps++;
+    let d = null; try { d = JSON.parse(e.raw.slice(e.raw.indexOf("{"), e.raw.lastIndexOf("}") + 1)); } catch (x) {}
+    const text = d && "final" in d ? `Says it is finished: <b>"${esc(d.final)}"</b>`
+      : d && d.tool ? `Asks for <code>${esc(d.tool)}</code>${d.args && Object.keys(d.args).length ? ` with <code>${esc(JSON.stringify(d.args))}</code>` : ""}` : "Replied with something the harness cannot use.";
+    let detail = `<pre>${esc(e.raw)}</pre>${e.seconds}s${e.tokens_in != null ? ` · ${e.tokens_in} tokens in, ${e.tokens_out} out` : ""}`;
+    if (e.attempts > 1) detail += ` <span class="retry">after ${e.attempts} attempts, waited ${e.waited}s${e.last_error ? ` (${esc(e.last_error)})` : ""}</span>`;
+    li = evItem("model", "model", `Loop · step ${S.steps}`, text, detail);
+  } else if (e.kind === "model_error") {
+    li = evItem("fail", "model", "Loop · the call failed", "The model could not be reached.", esc(e.text));
+  } else if (e.kind === "tool") {
+    if (e.ok) { const m = e.result.match(/^added task (\d+)/); if (m) S.added.add(+m[1]); }
+    const short = e.result.length > 160 ? e.result.slice(0, 160) + "…" : e.result;
+    li = evItem(e.ok ? "tool" : "tool err", "tool", e.ok ? "Tools · code ran it" : "Tools · refused, sent back as data",
+      `<code>${esc(e.call)}</code> → ${e.ok ? esc(short).replace(/\n/g, " | ") : `<b>${esc(e.result)}</b>`}`);
+    drawList(e.tasks, null);
+  } else if (e.kind === "ask") {
+    li = evItem("start", "question", "Gates · waiting for you", `Approval needed: <b>${esc(e.words)}</b>`);
+  } else if (e.kind === "gate") {
+    li = evItem(`gate ${e.allowed ? "approved" : "denied"}`, e.allowed ? "allowed" : "refused", "Gates · a human decides",
+      e.allowed ? `Allowed: ${esc(e.words)}` : `Refused: ${esc(e.words)}. Nothing was deleted.`,
+      e.reason === "timed out" ? "Nobody answered in time, so the answer was no." : "");
+  } else if (e.kind === "end") {
+    showResult(e);
+    drawList(e.tasks, null);
+  }
+  if (li) { feed.appendChild(li); }
+  $("stepcount").textContent = S.steps ? `${S.steps} model call${S.steps === 1 ? "" : "s"}` : "";
+}
+
+function showResult(e) {
+  const cls = e.status === "done" ? "done" : e.status === "done-with-denials" ? "denials" : "stopped";
+  const lesson = e.status === "done-with-denials" ? `${e.denials} action${e.denials === 1 ? " was" : "s were"} refused at the gate. The status says so because code sets it, not the model's words.`
+    : e.status === "done" ? "Finished. Any delete you saw ran only after your yes."
+    : e.status === "setup-error" ? "The server is not set up to call the model."
+    : "The harness stopped the run instead of letting it spin, and left a note for a person.";
+  $("result").innerHTML = `<div class="result"><span class="pill ${cls}">status: ${esc(e.status)}</span>
+    <p>The model's final words: <span class="said">"${esc(e.answer)}"</span></p>
+    ${e.handover ? `<p class="handover">hand-over note: ${esc(e.handover)}</p>` : ""}
+    <p class="lesson">${lesson}</p></div>`;
+}
+
+function drawQuestion(q) {
+  if (!q) { $("ask").innerHTML = ""; return; }
+  const existing = $("ask").querySelector(".timer");
+  if (existing) { existing.textContent = `${q.seconds_left}s left, then it counts as no`; return; }
+  $("ask").innerHTML = `<div class="ask" role="alertdialog" aria-labelledby="askq">
+    <p class="q" id="askq">The agent wants to <code>${esc(q.words)}</code></p>
+    <p class="sub">This cannot be undone. Did you ask for this, or did text inside a task ask for it?</p>
+    <div class="actions"><button class="btn deny" type="button" id="denybtn">No, keep it</button>
+    <button class="btn allow" type="button" id="allowbtn">Yes, delete it</button>
+    <span class="timer">${q.seconds_left}s left, then it counts as no</span></div></div>`;
+  $("denybtn").addEventListener("click", () => answer(false));
+  $("allowbtn").addEventListener("click", () => answer(true));
+  $("denybtn").focus();
+}
+
+async function answer(allow) {
+  $("ask").querySelectorAll("button").forEach(b => b.disabled = true);
+  try { await api("/api/answer", { sid: S.sid, allow }); } catch (err) { say(err.message, true); }
+}
+
+async function poll() {
+  try {
+    const d = await api(`/api/poll?sid=${encodeURIComponent(S.sid)}&since=${S.since}`);
+    d.events.forEach(addEvent);
+    S.since += d.events.length;
+    drawQuestion(d.question);
+    if (d.question) drawList(d.tasks, d.question);
+    S.running = d.running;
+    if (!d.running) { stopPolling(); setBusy(false); say(""); }
+  } catch (err) { say(err.message, true); stopPolling(); setBusy(false); }
+}
+function startPolling() { stopPolling(); S.timer = setInterval(poll, 700); }
+function stopPolling() { if (S.timer) clearInterval(S.timer); S.timer = null; }
+function setBusy(b) { $("runbtn").disabled = b; $("reset").disabled = b; $("seeds").querySelectorAll("button").forEach(x => x.disabled = b); }
+
+async function runGoal(goal) {
+  goal = goal.trim();
+  if (!goal) { say("Type a goal first.", true); return; }
+  setBusy(true); say("Running…");
+  $("feed").innerHTML = ""; $("result").innerHTML = ""; $("ask").innerHTML = ""; S.steps = 0;
+  try {
+    const d = await api("/api/run", { sid: S.sid, goal });
+    say(`Running. ${d.runs_left} run${d.runs_left === 1 ? "" : "s"} left in this visit.`);
+    startPolling();
+  } catch (err) { say(err.message, true); setBusy(false); }
+}
+
+async function restore(seed) {
+  try {
+    const d = await api("/api/reset", { sid: S.sid, seed });
+    S.seed = d.seed; S.start = d.tasks; S.added = new Set();
+    drawSeeds(); drawList(d.tasks, null);
+    $("feed").innerHTML = '<li class="empty">List restored. Pick a goal and press Run.</li>'; $("result").innerHTML = ""; S.steps = 0; $("stepcount").textContent = "";
+    say("");
+  } catch (err) { say(err.message, true); }
+}
+
+function drawSeeds() {
+  $("seeds").innerHTML = Object.entries(S.seeds).map(([k, label]) => `<button type="button" data-seed="${k}" aria-pressed="${k === S.seed}">${esc(label)}</button>`).join("");
+  $("seeds").querySelectorAll("button").forEach(b => b.addEventListener("click", () => restore(b.dataset.seed)));
+}
+
+async function init() {
+  EXAMPLES.forEach(g => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = g;
+    b.addEventListener("click", () => { $("goal").value = g; $("goal").focus(); });
+    $("chips").appendChild(b);
+  });
+  $("goalform").addEventListener("submit", ev => { ev.preventDefault(); runGoal($("goal").value); });
+  $("reset").addEventListener("click", () => restore(S.seed));
+  try {
+    const d = await api("/api/session", { seed: "week_start" });
+    Object.assign(S, { sid: d.sid, seed: d.seed, seeds: d.seeds, start: d.tasks, model: d.model });
+    $("badges").innerHTML = (d.model === "stand-in"
+      ? '<span class="badge standin">model: scripted stand-in (no AI, no key)</span>'
+      : '<span class="badge live">model: Gemini, live</span>')
+      + `<span class="badge">${d.runs_left} runs per visit</span><span class="badge">approval timeout ${d.approval_timeout}s</span>`;
+    drawSeeds(); drawList(d.tasks, null);
+  } catch (err) { say(err.message, true); }
+}
+init();
+</script>
+</body>
+</html>
