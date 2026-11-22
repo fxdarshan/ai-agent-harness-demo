@@ -76,7 +76,10 @@ def page_bytes() -> tuple[bytes, bytes, str]:
     stamp = os.path.getmtime(path)
     if _PAGE.get("stamp") != stamp:
         raw = open(path, "rb").read()
-        _PAGE.update(stamp=stamp, raw=raw, gz=gzip.compress(raw, 9), etag='"%s"' % hashlib.sha256(raw).hexdigest()[:16])
+        # A weak ETag (W/"...") because proxies such as Cloudflare in front of Render drop strong ETags from
+        # compressed replies; Last-Modified is a second validator for the same reason.
+        _PAGE.update(stamp=stamp, raw=raw, gz=gzip.compress(raw, 9), etag='W/"%s"' % hashlib.sha256(raw).hexdigest()[:16],
+                     modified=time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(stamp)))
     return _PAGE["raw"], _PAGE["gz"], _PAGE["etag"]
 
 
@@ -263,9 +266,12 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         if url.path in ("/", "/index.html"):
             page, packed, etag = page_bytes()
-            if self.headers.get("If-None-Match") == etag:
+            modified = _PAGE["modified"]
+            sent = self.headers.get("If-None-Match", "")
+            if (sent and sent.replace("W/", "") == etag.replace("W/", "")) or (not sent and self.headers.get("If-Modified-Since") == modified):
                 self.send_response(304)                    # the browser's copy is current: send nothing
                 self.send_header("ETag", etag)
+                self.send_header("Last-Modified", modified)
                 self.end_headers()
                 return
             body = packed if "gzip" in self.headers.get("Accept-Encoding", "") else page
@@ -273,6 +279,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-cache")   # always check, but reuse the copy when unchanged
             self.send_header("ETag", etag)
+            self.send_header("Last-Modified", modified)
             if body is packed:
                 self.send_header("Content-Encoding", "gzip")
             self.send_header("Vary", "Accept-Encoding")
