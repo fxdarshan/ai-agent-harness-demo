@@ -18,12 +18,16 @@ What to look at
                      record each model reply and tool result as an event the page polls for. The model call is
                      made under MODEL_LOCK, because llm.py keeps the latest call's facts in one shared place.
     Handler          the JSON endpoints (/api/session, /api/run, /api/poll, /api/answer, /api/reset) and the page.
+                     /api/poll?wait=1 is a long poll: it answers as soon as there is news, so the page needs no timer.
+    page_bytes()     the page is sent gzipped with an ETag, so a repeat visit downloads nothing.
     DEMO_MODEL       "gemini" (needs GEMINI_API_KEY) or "stand-in" (the scripted fooled model, no key, no quota).
 
 Run locally:  python web/app.py            then open http://localhost:8000
 Environment:  PORT, DEMO_MODEL, DAILY_RUN_CAP, RUNS_PER_VISITOR, APPROVAL_TIMEOUT (see the README section).
 """
 import dataclasses
+import gzip
+import hashlib
 import json
 import os
 import secrets
@@ -62,6 +66,20 @@ SESSIONS_LOCK = threading.Lock()
 DAILY = {"day": "", "runs": 0}
 
 
+LONG_POLL_SECONDS = 20                             # a waiting poll returns after this long even if nothing happened
+_PAGE: dict = {}
+
+
+def page_bytes() -> tuple[bytes, bytes, str]:
+    """The page, its gzip copy and an ETag, rebuilt only when index.html changes on disk."""
+    path = os.path.join(os.path.dirname(__file__), "index.html")
+    stamp = os.path.getmtime(path)
+    if _PAGE.get("stamp") != stamp:
+        raw = open(path, "rb").read()
+        _PAGE.update(stamp=stamp, raw=raw, gz=gzip.compress(raw, 9), etag='"%s"' % hashlib.sha256(raw).hexdigest()[:16])
+    return _PAGE["raw"], _PAGE["gz"], _PAGE["etag"]
+
+
 def tasks_of(state) -> list[list]:
     """The list as [id, text] pairs, the shape the page draws."""
     return [[t.id, t.text] for t in state.tasks]
@@ -73,6 +91,7 @@ class Session:
     def __init__(self, seed: str = "week_start"):
         self.id = secrets.token_urlsafe(16)
         self.lock = threading.Lock()
+        self.changed = threading.Condition(self.lock)   # wakes a waiting poll the moment something new happens
         self.answered = threading.Event()
         self.reset(seed)
         self.runs = 0
@@ -91,6 +110,12 @@ class Session:
         """Add one event for the page to pick up on its next poll."""
         with self.lock:
             self.events.append({"n": len(self.events), "kind": kind, "t": round(time.time(), 2), **data})
+            self.changed.notify_all()
+
+    def wait_for_news(self, since: int, seconds: float) -> None:
+        """Long polling: hold a poll until there is a new event or the run ends, so the page gets news at once."""
+        with self.changed:
+            self.changed.wait_for(lambda: len(self.events) > since or not self.running, timeout=seconds)
 
     def ask(self, name: str, args: dict, words: str) -> bool:
         """The harness's approve callback: wait for the visitor's click. No answer in time means no."""
@@ -169,6 +194,7 @@ def run_goal(session: Session, goal: str) -> None:
     finally:
         with session.lock:
             session.running = False
+            session.changed.notify_all()
 
 
 def daily_allows() -> bool:
@@ -225,16 +251,34 @@ class Handler(BaseHTTPRequestHandler):
             s.touched = time.time()
         return s
 
+    def do_HEAD(self):
+        """Answer uptime monitors and link previews that only ask whether the page is there."""
+        ok = urlparse(self.path).path in ("/", "/index.html", "/healthz")
+        self.send_response(200 if ok else 404)
+        self.send_header("Content-Type", "text/html; charset=utf-8" if ok else "application/json")
+        self.end_headers()
+
     def do_GET(self):
         """The page, a health check, or a poll for new events."""
         url = urlparse(self.path)
         if url.path in ("/", "/index.html"):
-            page = open(os.path.join(os.path.dirname(__file__), "index.html"), "rb").read()
+            page, packed, etag = page_bytes()
+            if self.headers.get("If-None-Match") == etag:
+                self.send_response(304)                    # the browser's copy is current: send nothing
+                self.send_header("ETag", etag)
+                self.end_headers()
+                return
+            body = packed if "gzip" in self.headers.get("Accept-Encoding", "") else page
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(page)))
+            self.send_header("Cache-Control", "no-cache")   # always check, but reuse the copy when unchanged
+            self.send_header("ETag", etag)
+            if body is packed:
+                self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(page)
+            self.wfile.write(body)
         elif url.path == "/healthz":
             self.send_json(200, {"ok": True})
         elif url.path == "/api/poll":
@@ -243,6 +287,8 @@ class Handler(BaseHTTPRequestHandler):
             if not s:
                 return self.send_json(404, {"error": "Your session expired. Reload the page to start again."})
             since = int(q.get("since", ["0"])[0] or 0)
+            if q.get("wait", ["0"])[0] == "1":
+                s.wait_for_news(since, LONG_POLL_SECONDS)
             with s.lock:
                 q_open = dict(s.question) if s.question else None
                 body = {"events": s.events[since:], "running": s.running, "tasks": tasks_of(s.state),

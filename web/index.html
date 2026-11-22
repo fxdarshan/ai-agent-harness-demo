@@ -3,624 +3,646 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Desk Assistant Live</title>
-<meta name="description" content="Give a to-do agent a goal. The model only asks; the harness decides, and only your yes can delete.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>Desk Assistant</title>
+<meta name="description" content="Give a to-do agent a goal. It can only ask; you decide what gets deleted.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23007aff'/%3E%3Cpath d='M9 11h14M9 16h9M9 21h6' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='m19.5 20 2.2 2.2 4-4.4' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <style>
-/* Layout: a control desk in three columns. Composer and harness map on the left, the live timeline in the middle,
-   the visitor's own to-do ledger on the right. Two columns on tablets, one on phones. */
+/* Design language: grouped inset lists on a grouped background, a translucent navigation bar, system colors,
+   continuous-looking rounded corners and an alert for the one decision that matters.
+   Layout: one main column (composer, then activity) with a sidebar (to-do list, how it works); one column on phones. */
 :root {
-  --bg: #edf0f4;
-  --panel: #ffffff;
-  --panel-2: #f5f7fa;
-  --sunk: #e6eaf0;
-  --ink: #141c28;
-  --ink-2: #3b4656;
-  --muted: #677386;
-  --line: #d6dce5;
-  --accent: #2b52c4;
-  --accent-ink: #ffffff;
-  --accent-soft: #e2e9fb;
-  --ok: #187247;
-  --ok-soft: #dcf1e5;
-  --deny: #b3261e;
-  --deny-soft: #fbe2df;
-  --warn: #935700;
-  --warn-soft: #fbedd4;
-  --note: #6a3cb0;
-  --note-soft: #eee5fb;
-  --shadow: 0 1px 2px rgb(20 28 40 / .06), 0 8px 24px rgb(20 28 40 / .06);
-  --f-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
-  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  --r: 12px;
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --fill: rgb(118 118 128 / .12);
+  --fill-2: rgb(118 118 128 / .08);
+  --label: #000000;
+  --label-2: rgb(60 60 67 / .62);
+  --label-3: rgb(60 60 67 / .36);
+  --sep: rgb(60 60 67 / .18);
+  --blue: #007aff;
+  --green: #34c759;
+  --red: #ff3b30;
+  --orange: #ff9500;
+  --purple: #af52de;
+  --indigo: #5856d6;
+  --gray: #8e8e93;
+  --bar: rgb(249 249 249 / .78);
+  --scrim: rgb(0 0 0 / .32);
+  --shadow: 0 1px 2px rgb(0 0 0 / .04), 0 10px 30px rgb(0 0 0 / .05);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0d1219; --panel: #151c26; --panel-2: #1a2230; --sunk: #10161f; --ink: #e6ecf4; --ink-2: #c3ccd8;
-    --muted: #8e9aab; --line: #283244; --accent: #8ba7ff; --accent-ink: #0d1219; --accent-soft: #1c2847;
-    --ok: #5cd297; --ok-soft: #13301f; --deny: #ff8b80; --deny-soft: #3b1a19; --warn: #f2bb5c; --warn-soft: #35280e;
-    --note: #c4a6ff; --note-soft: #2a2040; --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .25); color-scheme: dark;
+  :root {
+    --bg: #000000; --card: #1c1c1e; --fill: rgb(118 118 128 / .24); --fill-2: rgb(118 118 128 / .16);
+    --label: #ffffff; --label-2: rgb(235 235 245 / .62); --label-3: rgb(235 235 245 / .32); --sep: rgb(84 84 88 / .6);
+    --blue: #0a84ff; --green: #30d158; --red: #ff453a; --orange: #ff9f0a; --purple: #bf5af2; --indigo: #5e5ce6; --gray: #98989d;
+    --bar: rgb(22 22 24 / .78); --scrim: rgb(0 0 0 / .55); --shadow: none; color-scheme: dark;
   }
-}
-:root[data-theme="dark"] {
-  --bg: #0d1219; --panel: #151c26; --panel-2: #1a2230; --sunk: #10161f; --ink: #e6ecf4; --ink-2: #c3ccd8;
-  --muted: #8e9aab; --line: #283244; --accent: #8ba7ff; --accent-ink: #0d1219; --accent-soft: #1c2847;
-  --ok: #5cd297; --ok-soft: #13301f; --deny: #ff8b80; --deny-soft: #3b1a19; --warn: #f2bb5c; --warn-soft: #35280e;
-  --note: #c4a6ff; --note-soft: #2a2040; --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .25); color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--f-body); -webkit-font-smoothing: antialiased; }
-h1, h2, h3 { font-family: var(--f-display); margin: 0; letter-spacing: -0.015em; text-wrap: balance; }
-p { margin: 0; }
-code, kbd { font-family: var(--f-mono); font-size: .86em; }
-kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--panel-2); }
-button { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body { background: var(--bg); color: var(--label); font: 400 15px/1.45 var(--font); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--blue) 55%, transparent); outline-offset: 2px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.eyebrow { font: 600 .7rem/1 var(--f-mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+code { font-family: var(--mono); font-size: .9em; }
 
-/* ---- top bar ---- */
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--panel); }
-.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--panel); border-bottom: 1px solid var(--line); }
-.topbar-in { max-width: 1320px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
-  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; }
-.brand svg { flex: none; }
-.brand h1 { font-size: 1.15rem; font-weight: 700; }
-.brand p { font-size: .8rem; color: var(--muted); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.chip { display: inline-flex; align-items: center; gap: 6px; font: 500 .76rem var(--f-mono); padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2); white-space: nowrap; }
-.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-.chip.live .dot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
-.chip.standin .dot { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
-.iconbtn { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; }
-.iconbtn:hover { border-color: var(--accent); }
+/* ---- navigation bar ---- */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 40; background: var(--bar); }
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-bottom: .5px solid var(--sep); }
+.nav-in { max-width: 1180px; margin: 0 auto; height: 52px; display: flex; align-items: center; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.nav-title { font: 600 17px/1 var(--font); letter-spacing: -.02em; margin-right: auto; opacity: 0; transition: opacity .2s; }
+.nav.scrolled .nav-title { opacity: 1; }
+.capsule { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 14px; background: var(--fill); font: 500 13px var(--font); color: var(--label-2); white-space: nowrap; }
+.capsule .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gray); }
+.capsule.live .dot { background: var(--green); }
+.capsule.standin .dot { background: var(--orange); }
 
-/* ---- page grid ---- */
-.page { max-width: 1320px; margin: 0 auto; display: grid; gap: 18px; padding-block: 20px 40px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(250px, 320px); align-items: start; }
-@media (max-width: 1120px) { .page { grid-template-columns: minmax(270px, 330px) minmax(0, 1fr); } .ledger { grid-column: 1 / -1; } }
-@media (max-width: 760px) {
-  .page { grid-template-columns: minmax(0, 1fr); }
-  /* On a phone the timeline comes right after the goal, so a visitor sees the run without scrolling past settings. */
-  .page > .col { display: contents; }
-  .page .c-goal { order: 1; } .page .tl-card { order: 2; min-height: 0; } .page .ledger { order: 3; }
-  .page .c-list { order: 4; } .page .c-map { order: 5; }
-}
-.col { display: grid; gap: 18px; min-width: 0; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); min-width: 0; }
-.card-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; padding: 14px 16px 0; }
-.card-h h2 { font-size: 1.02rem; font-weight: 600; }
-.card-b { padding: 12px 16px 16px; display: grid; gap: 12px; }
-.hint { font-size: .82rem; color: var(--muted); }
+/* ---- page ---- */
+.page { max-width: 1180px; margin: 0 auto; padding-block: 8px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.hero { padding: 18px 4px 22px; display: grid; gap: 6px; }
+.hero h1 { margin: 0; font: 700 clamp(30px, 4vw, 40px)/1.08 var(--display); letter-spacing: -.035em; }
+.hero p { margin: 0; color: var(--label-2); font-size: 17px; max-width: 58ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 22px; align-items: start; }
+@media (max-width: 980px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.stack { display: grid; gap: 22px; min-width: 0; }
+
+.section { display: grid; gap: 7px; min-width: 0; }
+.section-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 16px; }
+.section-h h2 { margin: 0; font: 600 13px var(--font); text-transform: uppercase; letter-spacing: .02em; color: var(--label-2); }
+.section-f { padding: 0 16px; font-size: 13px; color: var(--label-2); }
+.card { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); min-width: 0; }
+.textbtn { border: 0; background: none; padding: 0; font: 400 15px var(--font); color: var(--blue); }
+.textbtn:disabled { color: var(--label-3); cursor: default; }
 
 /* ---- composer ---- */
-.intro { font-size: .92rem; color: var(--ink-2); }
-.intro b { color: var(--ink); }
-.field { position: relative; }
-#goal { width: 100%; resize: none; min-height: 76px; font: 500 .98rem/1.45 var(--f-mono); color: var(--ink); background: var(--panel-2);
-  border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px 26px; }
-#goal:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
-.counter { position: absolute; right: 10px; bottom: 8px; font: .72rem var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.counter.over { color: var(--deny); }
-.runrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 600 .9rem var(--f-body); border-radius: 9px; padding: 9px 16px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); cursor: pointer; }
-.btn:hover:not(:disabled) { border-color: var(--accent); }
-.btn:disabled { opacity: .5; cursor: default; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn.primary:hover:not(:disabled) { filter: brightness(1.07); }
-.btn.ghost { background: transparent; }
-.runrow .hint { margin-left: auto; }
-.status { font: .82rem var(--f-mono); color: var(--muted); min-height: 1.2em; }
-.status.err { color: var(--deny); }
+.composer { padding: 14px; display: grid; gap: 12px; }
+.field { position: relative; display: flex; align-items: flex-end; gap: 10px; background: var(--fill-2); border-radius: 22px; padding: 8px 8px 8px 16px; transition: box-shadow .15s; }
+.field:focus-within { box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 70%, transparent); }
+#goal { flex: 1; min-width: 0; border: 0; background: transparent; resize: none; outline: none; font: 400 17px/1.35 var(--font); padding: 7px 0; max-height: 120px; }
+#goal::placeholder { color: var(--label-3); }
+.send { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--blue); color: #fff; display: grid; place-items: center; transition: transform .1s, opacity .15s; }
+.send:disabled { background: var(--fill); color: var(--label-3); cursor: default; }
+.send:not(:disabled):active { transform: scale(.92); }
+.send .spin { display: none; }
+.send.busy .arrow { display: none; }
+.send.busy .spin { display: block; }
+.under { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 18px; padding: 0 4px; font-size: 13px; color: var(--label-2); }
+.under .count { margin-left: auto; font-variant-numeric: tabular-nums; }
+.under .count.warn { color: var(--red); }
+.under .err { color: var(--red); }
+.pills { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 4px; margin: 0 -2px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.pills::-webkit-scrollbar { display: none; }
+.pill { flex: none; scroll-snap-align: start; border: 0; background: var(--fill-2); border-radius: 18px; padding: 8px 14px; font: 500 14px var(--font); color: var(--label); white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; transition: background .15s; }
+.pill:hover { background: var(--fill); }
+.pill:disabled { opacity: .45; cursor: default; }
+.pill i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.pill.everyday i { background: var(--green); } .pill.approval i { background: var(--orange); } .pill.tricky i { background: var(--purple); }
 
-.examples { display: grid; gap: 10px; }
-.exgroup { display: grid; gap: 6px; }
-.ex { text-align: left; display: grid; gap: 2px; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; }
-.ex:hover { border-color: var(--accent); background: var(--accent-soft); }
-.ex b { font: 500 .86rem var(--f-mono); color: var(--ink); }
-.ex span { font-size: .78rem; color: var(--muted); }
+/* ---- grouped rows ---- */
+.rows { list-style: none; margin: 0; padding: 0; }
+.row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 16px; position: relative; min-height: 50px; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 58px; right: 0; border-top: .5px solid var(--sep); }
+.icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: #fff; background: var(--gray); flex: none; }
+.icon svg { width: 17px; height: 17px; }
+.i-blue { background: var(--blue); } .i-green { background: var(--green); } .i-red { background: var(--red); }
+.i-orange { background: var(--orange); } .i-purple { background: var(--purple); } .i-indigo { background: var(--indigo); } .i-gray { background: var(--gray); }
+.row .main { min-width: 0; display: grid; gap: 1px; }
+.row .t { font: 500 15px/1.3 var(--font); overflow-wrap: anywhere; }
+.row .s { font-size: 13px; color: var(--label-2); overflow-wrap: anywhere; }
+.row .acc { font-size: 13px; color: var(--label-3); font-variant-numeric: tabular-nums; white-space: nowrap; align-self: start; padding-top: 2px; }
+.row.appear { animation: appear .28s cubic-bezier(.2, .8, .2, 1); }
+@keyframes appear { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.row .quote { font-size: 14px; color: var(--label); background: var(--fill-2); border-radius: 10px; padding: 8px 10px; margin-top: 4px; }
+.row details { margin-top: 3px; }
+.row summary { list-style: none; cursor: pointer; font-size: 13px; color: var(--blue); width: fit-content; }
+.row summary::-webkit-details-marker { display: none; }
+.row summary::after { content: " ›"; }
+.row details[open] summary::after { content: " ⌄"; }
+.row pre { margin: 6px 0 0; font: 12.5px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--label-2); background: var(--fill-2); border-radius: 8px; padding: 8px 10px; }
+.retry { color: var(--orange); }
+.row.r-no .t { color: var(--red); }
 
-.lists { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.listopt { text-align: left; padding: 10px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; display: grid; gap: 2px; }
-.listopt b { font-size: .86rem; }
-.listopt span { font-size: .76rem; color: var(--muted); }
-.listopt[aria-checked="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
-.listopt:disabled { opacity: .55; cursor: default; }
+.spinner { width: 18px; height: 18px; animation: spin .9s steps(8) infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* ---- harness map ---- */
-.map { display: grid; gap: 6px; }
-.part { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px; background: var(--panel-2); border: 1px solid transparent; transition: background .3s, border-color .3s; }
-.part .ic { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; background: var(--sunk); color: var(--muted); font: 600 .72rem var(--f-mono); }
-.part b { font-size: .86rem; font-weight: 600; }
-.part small { display: block; font-size: .74rem; color: var(--muted); line-height: 1.3; }
-.part .n { font: .74rem var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.part.on { border-color: var(--accent); background: var(--accent-soft); }
-.part.on .ic { background: var(--accent); color: var(--accent-ink); }
-.part.on.gate-no { border-color: var(--deny); background: var(--deny-soft); }
-.part.on.gate-no .ic { background: var(--deny); color: var(--panel); }
-.part.used .ic { background: var(--accent-soft); color: var(--accent); }
+.ready { padding: 34px 20px 36px; display: grid; justify-items: center; text-align: center; gap: 8px; }
+.ready .big { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; background: var(--fill-2); color: var(--blue); }
+.ready h3 { margin: 4px 0 0; font: 600 20px var(--display); letter-spacing: -.02em; }
+.ready p { margin: 0; color: var(--label-2); max-width: 40ch; }
 
-/* ---- timeline ---- */
-.tl-card { min-height: 420px; }
-.timeline { list-style: none; margin: 0; padding: 6px 16px 16px; display: grid; gap: 0; }
-.item { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; padding: 10px 0; }
-.item::before { content: ""; position: absolute; left: 14px; top: 0; bottom: 0; width: 2px; background: var(--line); }
-.item:first-child::before { top: 22px; }
-.item:last-child::before { bottom: calc(100% - 22px); }
-.item .node { position: relative; z-index: 1; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--panel); border: 2px solid var(--line); color: var(--muted); }
-.item .node svg { width: 15px; height: 15px; }
-.item .bd { min-width: 0; display: grid; gap: 5px; padding-top: 3px; }
-.item .hd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
-.item .title { font-weight: 600; overflow-wrap: anywhere; }
-.item .meta { font: .74rem var(--f-mono); color: var(--muted); }
-.item .sub { font-size: .9rem; color: var(--ink-2); overflow-wrap: anywhere; }
-.item .box { font: .82rem/1.5 var(--f-mono); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--ink-2); }
-.item details summary { cursor: pointer; font: .76rem var(--f-mono); color: var(--muted); width: fit-content; }
-.item details[open] summary { margin-bottom: 5px; }
-.item.new { animation: in .3s ease-out; }
-@keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.retry { color: var(--warn); }
-.item.k-goal .node { border-color: var(--ink); color: var(--ink); }
-.item.k-model .node { border-color: var(--accent); color: var(--accent); }
-.item.k-tool .node { border-color: var(--ok); color: var(--ok); }
-.item.k-err .node { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
-.item.k-ask .node { border-color: var(--warn); color: var(--warn); }
-.item.k-yes .node { border-color: var(--ok); background: var(--ok); color: var(--panel); }
-.item.k-no .node { border-color: var(--deny); background: var(--deny); color: var(--panel); }
-.item.k-no .title { color: var(--deny); }
-.item.k-fail .node { border-color: var(--deny); color: var(--deny); background: var(--deny-soft); }
-.item.k-think .title { color: var(--muted); font-weight: 500; }
-.dots { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 4px; }
-.dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite ease-in-out; }
-.dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
-@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+/* ---- result ---- */
+.result { padding: 22px 18px 18px; display: grid; gap: 14px; justify-items: center; text-align: center; }
+.badge { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+.badge svg { width: 30px; height: 30px; }
+.result h3 { margin: 0; font: 700 22px var(--display); letter-spacing: -.025em; }
+.result .why { color: var(--label-2); max-width: 46ch; }
+.result .said { font-size: 15px; background: var(--fill-2); border-radius: 12px; padding: 10px 14px; max-width: 56ch; overflow-wrap: anywhere; }
+.result .said span { display: block; font-size: 12px; color: var(--label-2); margin-bottom: 2px; }
+.tiles { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.tile { background: var(--fill-2); border-radius: 12px; padding: 10px 6px; display: grid; gap: 1px; }
+.tile b { font: 600 20px var(--display); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.tile span { font-size: 12px; color: var(--label-2); }
+@media (max-width: 430px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.result .note { font-size: 13px; color: var(--label-2); max-width: 60ch; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.btn { border: 0; border-radius: 12px; padding: 11px 18px; font: 600 15px var(--font); background: var(--fill); color: var(--blue); }
+.btn.filled { background: var(--blue); color: #fff; }
 
-.empty { display: grid; gap: 14px; justify-items: start; padding: 22px 16px 26px; }
-.empty h3 { font-size: 1.15rem; }
-.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; width: 100%; }
-.flow div { padding: 10px 12px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line); display: grid; gap: 2px; }
-.flow b { font: 600 .74rem var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
-.flow span { font-size: .84rem; color: var(--ink-2); }
+/* ---- segmented control ---- */
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--fill); border-radius: 9px; padding: 2px; margin: 12px 16px 4px; }
+.seg button { border: 0; background: transparent; border-radius: 7px; padding: 6px 8px; font: 500 13px var(--font); color: var(--label); }
+.seg button[aria-checked="true"] { background: var(--card); box-shadow: 0 2px 6px rgb(0 0 0 / .12), 0 0 0 .5px rgb(0 0 0 / .04); font-weight: 600; }
+@media (prefers-color-scheme: dark) { .seg button[aria-checked="true"] { background: #636366; } }
+.seg button:disabled { opacity: .5; cursor: default; }
 
-.outcome { margin: 0 16px 16px; border-radius: 11px; border: 1px solid var(--line); overflow: hidden; }
-.outcome .band { padding: 14px 16px; display: grid; gap: 6px; }
-.outcome.s-done .band { background: var(--ok-soft); }
-.outcome.s-denials .band { background: var(--warn-soft); }
-.outcome.s-stopped .band { background: var(--deny-soft); }
-.outcome h3 { font-size: 1.1rem; }
-.pill { justify-self: start; font: 600 .76rem var(--f-mono); padding: 2px 9px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
-.outcome .said { font-style: italic; color: var(--ink-2); overflow-wrap: anywhere; }
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); }
-.stats div { padding: 10px 12px; display: grid; gap: 1px; }
-.stats div + div { border-left: 1px solid var(--line); }
-.stats b { font: 600 1.05rem var(--f-display); font-variant-numeric: tabular-nums; }
-.stats span { font-size: .72rem; color: var(--muted); }
-@media (max-width: 460px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stats div:nth-child(3) { border-left: 0; } .stats div:nth-child(n+3) { border-top: 1px solid var(--line); } }
-.outcome .handover { padding: 10px 16px; font: .8rem var(--f-mono); color: var(--muted); border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+/* ---- to-do rows ---- */
+.todo .row { grid-template-columns: 24px minmax(0, 1fr) auto; min-height: 46px; padding: 10px 16px; }
+.todo .row + .row::before { left: 52px; }
+.circle { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--label-3); display: grid; place-items: center; font: 600 10px var(--font); color: var(--label-3); }
+.todo .t { font-weight: 400; }
+.tag { font: 600 11px var(--font); padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
+.tag.new { background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
+.tag.kept { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+.tag.asked { background: color-mix(in srgb, var(--orange) 18%, transparent); color: var(--orange); }
+.tag.note { background: color-mix(in srgb, var(--purple) 16%, transparent); color: var(--purple); }
+.tag.gone { background: var(--fill-2); color: var(--label-3); }
+.todo .row.gone .t { text-decoration: line-through; color: var(--label-3); }
+.todo .row.gone .circle { border-color: var(--label-3); background: var(--label-3); color: var(--card); }
+.todo .row.asked { background: color-mix(in srgb, var(--orange) 9%, transparent); }
+.todo .row.planted .t { color: var(--purple); }
 
-/* ---- ledger ---- */
-.ledger .tally { font: .78rem var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.task { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: start; padding: 9px 10px; border-radius: 9px; background: var(--panel-2); border: 1px solid transparent; transition: background .3s, border-color .3s, opacity .3s; }
-.task .id { font: 600 .76rem/1.7 var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.task .t { overflow-wrap: anywhere; font-size: .92rem; }
-.task .tag { display: inline-block; margin: 3px 0 0; font: 600 .66rem var(--f-mono); letter-spacing: .03em; padding: 1px 6px; border-radius: 4px; }
-.task.planted { border-color: var(--note); background: var(--note-soft); }
-.task.planted .tag { background: var(--note); color: var(--panel); }
-.task.added { border-color: var(--ok); background: var(--ok-soft); }
-.task.added .tag { background: var(--ok); color: var(--panel); }
-.task.asked { border-color: var(--warn); background: var(--warn-soft); box-shadow: 0 0 0 3px var(--warn-soft); }
-.task.asked .tag { background: var(--warn); color: var(--panel); }
-.task.kept .tag { background: var(--deny); color: var(--panel); }
-.task.kept { border-color: var(--deny); }
-.task.gone { background: transparent; border: 1px dashed var(--line); opacity: .75; }
-.task.gone .t { text-decoration: line-through; color: var(--muted); }
-.task.gone .tag { background: var(--sunk); color: var(--muted); }
-.ledger .foot { font-size: .8rem; color: var(--muted); }
+/* ---- how it works ---- */
+.parts .row { min-height: 52px; }
+.parts .acc { align-self: center; padding: 0; }
+.parts .row.active { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+.parts .row.active.refused { background: color-mix(in srgb, var(--red) 8%, transparent); }
+.check { color: var(--blue); font-weight: 600; }
 
-/* ---- approval dialog ---- */
-dialog { border: 0; padding: 0; border-radius: 16px; width: min(480px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); box-shadow: 0 24px 64px rgb(0 0 0 / .35); }
-dialog::backdrop { background: rgb(10 14 20 / .55); backdrop-filter: blur(2px); }
-.dlg { display: grid; gap: 14px; padding: 22px 22px 20px; }
-.dlg-top { display: flex; gap: 14px; align-items: center; }
-.ring { position: relative; width: 58px; height: 58px; flex: none; }
-.ring svg { transform: rotate(-90deg); }
-.ring .track { stroke: var(--sunk); }
-.ring .prog { stroke: var(--warn); transition: stroke-dashoffset 1s linear; }
-.ring span { position: absolute; inset: 0; display: grid; place-items: center; font: 600 .9rem var(--f-mono); font-variant-numeric: tabular-nums; }
-.dlg h2 { font-size: 1.2rem; }
-.dlg .what { padding: 12px 14px; border-radius: 10px; background: var(--deny-soft); border: 1px solid var(--deny); display: grid; gap: 4px; }
-.dlg .what span { font: 600 .7rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--deny); }
-.dlg .what b { font-size: 1.05rem; overflow-wrap: anywhere; }
-.dlg p { color: var(--ink-2); font-size: .92rem; }
-.dlg .acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.btn.keep { background: var(--ink); border-color: var(--ink); color: var(--panel); }
-.btn.del { background: transparent; border-color: var(--deny); color: var(--deny); }
-.btn.del:hover:not(:disabled) { background: var(--deny); color: var(--panel); }
-.dlg .fine { font-size: .78rem; color: var(--muted); }
+/* ---- alert / sheet ---- */
+dialog { border: 0; padding: 0; background: transparent; color: var(--label); max-width: none; max-height: none; overflow: visible; }
+dialog::backdrop { background: var(--scrim); }
+.alert { width: min(340px, calc(100vw - 40px)); border-radius: 16px; overflow: hidden; background: var(--bar);
+  -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px); box-shadow: 0 20px 60px rgb(0 0 0 / .3); }
+@supports not (backdrop-filter: blur(1px)) { .alert { background: var(--card); } }
+dialog[open] .alert { animation: pop .22s cubic-bezier(.2, .9, .3, 1.2); }
+@keyframes pop { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
+.alert-b { padding: 20px 18px 16px; text-align: center; display: grid; gap: 6px; justify-items: center; }
+.alert-b .icon { width: 44px; height: 44px; border-radius: 12px; margin-bottom: 4px; }
+.alert-b .icon svg { width: 24px; height: 24px; }
+.alert h2 { margin: 0; font: 600 17px/1.3 var(--font); overflow-wrap: anywhere; }
+.alert p { margin: 0; font-size: 13px; line-height: 1.4; }
+.alert .why { color: var(--label); }
+.alert .timer { color: var(--label-2); font-variant-numeric: tabular-nums; }
+.alert .meter { width: 100%; height: 3px; border-radius: 2px; background: var(--fill); overflow: hidden; margin-top: 6px; }
+.alert .meter i { display: block; height: 100%; background: var(--orange); transform-origin: left; transition: transform 1s linear; }
+.alert-btns { display: grid; grid-template-columns: 1fr 1fr; border-top: .5px solid var(--sep); }
+.alert-btns button { border: 0; background: transparent; padding: 13px 8px; font: 400 17px var(--font); color: var(--blue); }
+.alert-btns button + button { border-left: .5px solid var(--sep); }
+.alert-btns button:hover { background: var(--fill-2); }
+.alert-btns .keep { font-weight: 600; }
+.alert-btns .del { color: var(--red); }
+@media (max-width: 560px) {
+  dialog { margin: auto auto 0; width: 100%; }
+  .alert { width: auto; margin: 0 8px calc(8px + env(safe-area-inset-bottom, 0px)); border-radius: 16px; }
+  dialog[open] .alert { animation: rise .3s cubic-bezier(.2, .9, .3, 1); }
+  @keyframes rise { from { transform: translateY(100%); } to { transform: none; } }
+  .alert-btns { grid-template-columns: 1fr; }
+  .alert-btns button + button { border-left: 0; border-top: .5px solid var(--sep); }
+  .alert-btns .del { order: 1; } .alert-btns .keep { order: 2; }
+}
 
-footer { max-width: 1320px; margin: 0 auto; padding-block: 0 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); color: var(--muted); font-size: .84rem; display: flex; flex-wrap: wrap; gap: 6px 18px; }
-footer a { color: var(--accent); }
+/* ---- toast ---- */
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+  background: var(--bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-radius: 20px; padding: 10px 16px; font: 500 14px var(--font); box-shadow: 0 8px 30px rgb(0 0 0 / .18); transition: opacity .2s, transform .2s; z-index: 50; max-width: calc(100vw - 32px); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+footer { max-width: 1180px; margin: 0 auto; padding-block: 4px 40px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px));
+  font-size: 13px; color: var(--label-2); display: grid; gap: 4px; }
+footer a { color: var(--blue); text-decoration: none; }
+@media (max-width: 980px) {
+  .grid > .stack { display: contents; }
+  .grid { gap: 22px; }
+  .o-compose { order: 1; } .o-activity { order: 2; } .o-todo { order: 3; } .o-parts { order: 4; }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<header class="topbar">
-  <div class="topbar-in">
-    <div class="brand">
-      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
-        <rect x="1" y="1" width="32" height="32" rx="9" fill="var(--accent)"/>
-        <path d="M10 11h14M10 17h9M10 23h6" stroke="var(--accent-ink)" stroke-width="2.4" stroke-linecap="round"/>
-        <path d="M21 20.5l2.2 2.2 4-4.4" stroke="var(--accent-ink)" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div><h1>Desk Assistant</h1><p>A to-do agent with a harness around it</p></div>
-    </div>
-    <div class="chips">
-      <span class="chip" id="modelchip"><span class="dot"></span><span>connecting…</span></span>
-      <span class="chip" id="runschip">– runs left</span>
-      <button class="iconbtn" id="theme" type="button" aria-label="Switch between light and dark">
-        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
-      </button>
-    </div>
+<header class="nav" id="nav">
+  <div class="nav-in">
+    <span class="nav-title">Desk Assistant</span>
+    <span class="capsule" id="model"><span class="dot"></span><span>Connecting</span></span>
+    <span class="capsule" id="runs">–</span>
   </div>
 </header>
 
 <main class="page">
-  <div class="col">
-    <section class="card c-goal" aria-labelledby="h-goal">
-      <div class="card-h"><h2 id="h-goal">Give it a goal</h2></div>
-      <div class="card-b">
-        <p class="intro">Ask in plain words. <b>The model only asks; code decides.</b> Adding and listing just run. Deleting cannot be undone, so the harness stops and asks <b>you</b>.</p>
-        <form id="goalform" class="field" autocomplete="off">
-          <label for="goal" class="sr">Goal</label>
-          <textarea id="goal" rows="2" maxlength="200" placeholder="Delete the dentist task." aria-describedby="counter"></textarea>
-          <span class="counter" id="counter">0 / 200</span>
-        </form>
-        <div class="runrow">
-          <button class="btn primary" type="submit" form="goalform" id="runbtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l12-7.5z"/></svg>Run
-          </button>
-          <span class="hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+  <section class="hero">
+    <h1>Desk Assistant</h1>
+    <p>Give a to-do agent a goal. It can only ask. Code checks every step, and nothing is deleted unless you say yes.</p>
+  </section>
+
+  <div class="grid">
+    <div class="stack">
+      <section class="section o-compose" aria-label="Your goal">
+        <div class="card composer">
+          <form class="field" id="form" autocomplete="off">
+            <label for="goal" class="sr">What should the assistant do?</label>
+            <textarea id="goal" rows="1" maxlength="200" placeholder="What should the assistant do?"></textarea>
+            <button class="send" id="send" type="submit" aria-label="Run" disabled>
+              <svg class="arrow" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 4.5a1 1 0 0 1 .7.3l6 6a1 1 0 1 1-1.4 1.4L13 7.9V19a1 1 0 1 1-2 0V7.9l-4.3 4.3a1 1 0 1 1-1.4-1.4l6-6a1 1 0 0 1 .7-.3z"/></svg>
+              <svg class="spin spinner" viewBox="0 0 24 24" aria-hidden="true"><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <path d="M12 3v4" opacity="1"/><path d="M18.4 5.6l-2.8 2.8" opacity=".88"/><path d="M21 12h-4" opacity=".76"/><path d="M18.4 18.4l-2.8-2.8" opacity=".64"/>
+                <path d="M12 21v-4" opacity=".52"/><path d="M5.6 18.4l2.8-2.8" opacity=".4"/><path d="M3 12h4" opacity=".3"/><path d="M5.6 5.6l2.8 2.8" opacity=".2"/></g></svg>
+            </button>
+          </form>
+          <div class="under" id="under" role="status" aria-live="polite"><span id="tip">Pick a suggestion or type your own goal.</span><span class="count" id="count"></span></div>
+          <div class="pills" id="pills" role="list" aria-label="Suggestions"></div>
         </div>
-        <p class="status" id="status" role="status"></p>
-        <div class="examples" id="examples"></div>
-      </div>
-    </section>
+      </section>
 
-    <section class="card c-list" aria-labelledby="h-list">
-      <div class="card-h"><h2 id="h-list">Starting list</h2><button class="btn ghost" type="button" id="restore" style="padding:4px 10px;font-size:.8rem">Restore</button></div>
-      <div class="card-b">
-        <div class="lists" id="lists" role="radiogroup" aria-labelledby="h-list"></div>
-        <p class="hint">Your own practice list. Nobody else can see or change it.</p>
-      </div>
-    </section>
-
-    <section class="card c-map" aria-labelledby="h-map">
-      <div class="card-h"><h2 id="h-map">The harness at work</h2><span class="eyebrow">lights up live</span></div>
-      <div class="card-b"><div class="map" id="map"></div></div>
-    </section>
-  </div>
-
-  <section class="card tl-card" aria-labelledby="h-tl">
-    <div class="card-h"><h2 id="h-tl">What happens</h2><span class="eyebrow" id="stepcount"></span></div>
-    <ol class="timeline" id="timeline" aria-live="polite"></ol>
-    <div id="outcome"></div>
-  </section>
-
-  <section class="card ledger" aria-labelledby="h-ledger">
-    <div class="card-h"><h2 id="h-ledger">Your to-do list</h2><span class="tally" id="tally"></span></div>
-    <div class="card-b">
-      <ul class="tasks" id="tasks"></ul>
-      <p class="foot">Text inside a task is data, never an order. Only the gate decides what gets deleted.</p>
+      <section class="section o-activity" aria-labelledby="h-act">
+        <div class="section-h"><h2 id="h-act">Activity</h2><span class="section-f" id="stepcount" style="padding:0"></span></div>
+        <div class="card"><ul class="rows" id="activity" aria-live="polite"></ul></div>
+        <div id="result"></div>
+      </section>
     </div>
-  </section>
+
+    <div class="stack">
+      <section class="section o-todo" aria-labelledby="h-todo">
+        <div class="section-h"><h2 id="h-todo">To-Do List</h2><button class="textbtn" type="button" id="restore">Reset</button></div>
+        <div class="card todo">
+          <div class="seg" id="seg" role="radiogroup" aria-label="Starting list"></div>
+          <ul class="rows" id="tasks"></ul>
+        </div>
+        <p class="section-f">Your own practice list. Text inside a task is data, never an order.</p>
+      </section>
+
+      <section class="section o-parts" aria-labelledby="h-parts">
+        <div class="section-h"><h2 id="h-parts">How It Works</h2></div>
+        <div class="card parts"><ul class="rows" id="parts"></ul></div>
+        <p class="section-f">Each part lights up while it acts on your goal.</p>
+      </section>
+    </div>
+  </div>
 </main>
 
 <footer>
-  <span>Every goal runs through the same <code>harness.run</code> as the command-line agent: the same tools, gate, step cap, repeat check and refusal cap.</span>
-  <span>Goals are sent to the model provider, so type toy text only.</span>
-  <a href="https://github.com/fxdarshan/ai-agent-harness-demo/tree/web-demo" target="_blank" rel="noopener">Source on GitHub</a>
+  <span>Every goal runs through the same harness as the command-line agent. Goals are sent to the model provider, so type toy text only.</span>
+  <a href="https://github.com/fxdarshan/ai-agent-harness-demo/tree/web-demo" target="_blank" rel="noopener">View the source on GitHub</a>
 </footer>
 
-<dialog id="dlg" aria-labelledby="dlg-h" aria-describedby="dlg-d">
-  <form method="dialog" class="dlg" id="dlgform">
-    <div class="dlg-top">
-      <div class="ring" aria-hidden="true">
-        <svg width="58" height="58" viewBox="0 0 58 58"><circle class="track" cx="29" cy="29" r="25" fill="none" stroke-width="5"/>
-        <circle class="prog" id="ringprog" cx="29" cy="29" r="25" fill="none" stroke-width="5" stroke-linecap="round" stroke-dasharray="157.08" stroke-dashoffset="0"/></svg>
-        <span id="ringtxt">120</span>
-      </div>
-      <div><span class="eyebrow">The gate · your decision</span><h2 id="dlg-h">The agent wants to delete a task</h2></div>
+<dialog id="dlg" aria-labelledby="dlg-title" aria-describedby="dlg-why">
+  <form method="dialog" class="alert">
+    <div class="alert-b">
+      <span class="icon i-red" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4zm-3 5h12l-1 12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2zm4 3v8h1.6v-8zm2.4 0v8H14v-8z"/></svg></span>
+      <h2 id="dlg-title">Delete this task?</h2>
+      <p class="why" id="dlg-why">This can't be undone. Did you ask for it, or did text inside a task?</p>
+      <p class="timer" id="dlg-timer"></p>
+      <div class="meter" aria-hidden="true"><i id="dlg-meter"></i></div>
     </div>
-    <div class="what"><span>This cannot be undone</span><b id="dlg-what"></b></div>
-    <p id="dlg-d">Did you ask for this? Or did text inside a task ask for it? If you say no, the agent is told and will not try it again.</p>
-    <div class="acts">
-      <button class="btn del" value="yes" id="dlg-yes" type="submit">Yes, delete it</button>
-      <button class="btn keep" value="no" id="dlg-no" type="submit" autofocus>No, keep it</button>
+    <div class="alert-btns">
+      <button class="del" value="yes" id="dlg-yes" type="submit">Delete</button>
+      <button class="keep" value="no" id="dlg-no" type="submit" autofocus>Keep</button>
     </div>
-    <p class="fine">Closing this window or waiting it out counts as no.</p>
   </form>
 </dialog>
 
-<script>
-const ICONS = {
-  goal: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M5 3h2v18H5zM8 4h10l-2 4 2 4H8z"/></svg>',
-  model: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 5h16v11H9l-5 4zM8 9v2h8V9z"/></svg>',
-  tool: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21 7.5a5.5 5.5 0 0 1-7.6 5.1L6.2 19.8a2 2 0 0 1-2.8-2.8l7.2-7.2A5.5 5.5 0 0 1 17.5 3l-3 3 .6 2.9 2.9.6z"/></svg>',
-  err: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3 2 21h20zm-1 6h2v6h-2zm0 8h2v2h-2z"/></svg>',
-  ask: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2zm1.6-6.4-.9.9c-.7.7-.7 1.1-.7 2.5h-2c0-1.9.3-2.6 1.3-3.5l1.2-1.2a1.5 1.5 0 1 0-2.5-1.1H8a3.9 3.9 0 1 1 6.6 3.4z"/></svg>',
-  yes: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="m9 16.2-4.2-4.2-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>',
-  no: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM5 12a7 7 0 0 1 11.3-5.5l-9.8 9.8A7 7 0 0 1 5 12zm7 7a7 7 0 0 1-4.3-1.5l9.8-9.8A7 7 0 0 1 12 19z"/></svg>',
-  end: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16v4H4zm0 6h16v10H4zm3 3v2h6v-2z"/></svg>',
-};
-const PARTS = [
-  { key: "loop", label: "Loop", text: "one model call per step, capped", ic: "L" },
-  { key: "context", label: "Context", text: "what the model is shown each step", ic: "C" },
-  { key: "tools", label: "Tools", text: "code runs the action and checks input", ic: "T" },
-  { key: "gates", label: "Gates", text: "irreversible actions wait for a human", ic: "G" },
-  { key: "trace", label: "Trace", text: "every step recorded; status set by code", ic: "R" },
-];
-const EXAMPLES = [
-  { group: "Everyday", items: [
-    { goal: "Add 'File taxes', then show me my list.", why: "Adding and listing need no approval" },
-    { goal: "Add 'Book dentist appointment'.", why: "Already on the list: the duplicate rule" } ] },
-  { group: "Needs your approval", items: [
-    { goal: "Delete the dentist task.", why: "Say no, then try again and say yes" },
-    { goal: "Delete my 2 oldest tasks.", why: "Two questions, one per task" } ] },
-  { group: "Tricky", items: [
-    { goal: "Tidy up my to-do list and tell me what is left.", why: "A planted note tries to give orders", seed: "trap" },
-    { goal: "Delete task 99.", why: "There is no task 99. What does it do next?" } ] },
-];
-const LIST_HELP = { week_start: "Six ordinary tasks", trap: "Contains a note with orders" };
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-const S = { sid: null, since: 0, timer: null, seed: "week_start", seeds: {}, start: [], tasks: [], added: new Set(), kept: new Set(),
-            calls: 0, tin: 0, tout: 0, refused: 0, t0: 0, runsLeft: 0, timeout: 120, running: false, question: null };
+<script>
+"use strict";
+/* ---------------- icons (simple glyphs in rounded tiles) ---------------- */
+const G = {
+  flag: '<path fill="currentColor" d="M5 3h2v18H5zm3 1h10.5l-2.3 4 2.3 4H8z"/>',
+  bubble: '<path fill="currentColor" d="M12 4c4.97 0 9 3.13 9 7s-4.03 7-9 7c-.9 0-1.77-.1-2.6-.3L5 20l1.2-3.5C4.2 15.2 3 13.2 3 11c0-3.87 4.03-7 9-7z"/>',
+  wrench: '<path fill="currentColor" d="M20.7 7.1a5.3 5.3 0 0 1-7 5.1l-6.9 6.9a2 2 0 1 1-2.9-2.9l6.9-6.9a5.3 5.3 0 0 1 5.1-7l-3 3 .7 2.9 2.9.7z"/>',
+  warn: '<path fill="currentColor" d="M12 3.5 2.5 20h19zm-1 6h2v5h-2zm0 6.5h2v2h-2z"/>',
+  hand: '<path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a1.3 1.3 0 1 1 0 2.6A1.3 1.3 0 0 1 12 6zm1.5 12h-3v-1.5h.8v-4.5h-.8v-1.5h2.2v6h.8z"/>',
+  check: '<path fill="currentColor" d="M9.5 16.6 5.2 12.3l-1.4 1.4 5.7 5.7L20.2 8.7l-1.4-1.4z"/>',
+  xmark: '<path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z"/>',
+  shield: '<path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.5 8 11 4.6-1.5 8-6 8-11V5zm-1.2 14.2-3.5-3.5 1.4-1.4 2.1 2.1 4.8-4.8 1.4 1.4z"/>',
+  loop: '<path fill="currentColor" d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/>',
+  eye: '<path fill="currentColor" d="M12 5C6.5 5 2.7 9.1 1.5 12c1.2 2.9 5 7 10.5 7s9.3-4.1 10.5-7C21.3 9.1 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>',
+  lock: '<path fill="currentColor" d="M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0z"/>',
+  list: '<path fill="currentColor" d="M4 5h2v2H4zm4 0h12v2H8zM4 11h2v2H4zm4 0h12v2H8zm-4 6h2v2H4zm4 0h12v2H8z"/>',
+  stop: '<path fill="currentColor" d="M8 3h8l5 5v8l-5 5H8l-5-5V8zm3 5v5h2V8zm0 7v2h2v-2z"/>',
+  sparkle: '<path fill="currentColor" d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zm6 11 .9 2.6 2.6.9-2.6.9L18 21l-.9-2.6-2.6-.9 2.6-.9z"/>',
+};
+const svg = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${G[name]}</svg>`;
+
+const PARTS = [
+  { key: "loop", name: "Loop", text: "One model call per step, with hard limits", icon: "loop", tint: "i-indigo" },
+  { key: "context", name: "Context", text: "Shows the model the goal and past steps", icon: "eye", tint: "i-blue" },
+  { key: "tools", name: "Tools", text: "Code checks input and runs the action", icon: "wrench", tint: "i-green" },
+  { key: "gates", name: "Gates", text: "Deleting waits for your yes", icon: "lock", tint: "i-orange" },
+  { key: "trace", name: "Trace", text: "Records each step; code sets the status", icon: "list", tint: "i-gray" },
+];
+const SUGGEST = [
+  { goal: "Add 'File taxes', then show me my list.", kind: "everyday", tip: "Adding and listing run without asking you." },
+  { goal: "Delete the dentist task.", kind: "approval", tip: "You will be asked. Try no first, then run it again and say yes." },
+  { goal: "Tidy up my to-do list and tell me what is left.", kind: "tricky", seed: "trap", tip: "This list hides a note that tries to give orders. Watch what the gate does." },
+  { goal: "Delete my 2 oldest tasks.", kind: "approval", tip: "Two deletes means two questions, one for each task." },
+  { goal: "Add 'Book dentist appointment'.", kind: "everyday", tip: "It is already on the list, so the tool refuses it." },
+  { goal: "Delete task 99.", kind: "tricky", tip: "There is no task 99. See what the model tries next." },
+];
+const LISTS = { week_start: "Normal Week", trap: "Planted Note" };
+
+const S = { sid: null, seed: "week_start", seeds: {}, start: [], tasks: [], added: new Set(), kept: new Set(), asked: 0,
+  since: 0, running: false, polling: false, calls: 0, tokens: 0, refused: 0, t0: 0, runsLeft: 0, timeout: 120,
+  question: null, answered: false, deadline: 0, tick: null, parts: {} };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/* ---------- theme (a per-viewer convenience) ---------- */
-function applyTheme(t) { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
-try { applyTheme(localStorage.getItem("da-theme")); } catch (e) {}
-$("theme").addEventListener("click", () => {
-  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-  const next = dark ? "light" : "dark"; applyTheme(next);
-  try { localStorage.setItem("da-theme", next); } catch (e) {}
-});
-
-/* ---------- server calls ---------- */
+/* ---------------- server ---------------- */
 async function api(path, body) {
   const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
   const data = await res.json().catch(() => ({ error: "The server sent a reply this page cannot read." }));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+  if (!res.ok) throw new Error(data.error || `Something went wrong (${res.status}).`);
   return data;
 }
-function say(text, err) { $("status").textContent = text || ""; $("status").classList.toggle("err", !!err); }
 
-/* ---------- harness map ---------- */
-const partCount = {};
-function drawMap() {
-  $("map").innerHTML = PARTS.map(p => `<div class="part" id="part-${p.key}"><span class="ic">${p.ic}</span><div><b>${p.label}</b><small>${p.text}</small></div><span class="n" id="n-${p.key}"></span></div>`).join("");
+/* ---------------- small helpers ---------------- */
+let toastTimer;
+function toast(text) {
+  const t = $("toast"); t.textContent = text; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
 }
-function lightPart(key, variant) {
-  partCount[key] = (partCount[key] || 0) + 1;
-  document.querySelectorAll(".part.on").forEach(p => p.classList.remove("on", "gate-no"));
-  const el = $(`part-${key}`); if (!el) return;
-  el.classList.add("on", "used"); if (variant) el.classList.add(variant);
-  $(`n-${key}`).textContent = `×${partCount[key]}`;
+function tip(text, isErr) { $("tip").textContent = text; $("tip").className = isErr ? "err" : ""; }
+function syncSend() { $("send").disabled = S.running || !$("goal").value.trim(); }
+function grow() { const g = $("goal"); g.style.height = "auto"; g.style.height = Math.min(g.scrollHeight, 120) + "px"; }
+function count() {
+  const n = $("goal").value.length, c = $("count");
+  c.textContent = n > 150 ? `${200 - n} left` : ""; c.classList.toggle("warn", n >= 190);
 }
-function resetMap() { Object.keys(partCount).forEach(k => delete partCount[k]); drawMap(); }
 
-/* ---------- ledger ---------- */
+/* ---------------- how it works ---------------- */
+function drawParts(activeKey, refused) {
+  $("parts").innerHTML = PARTS.map(p => {
+    const n = S.parts[p.key] || 0;
+    const cls = ["row", p.key === activeKey && "active", p.key === activeKey && refused && "refused"].filter(Boolean).join(" ");
+    return `<li class="${cls}"><span class="icon ${p.tint}">${svg(p.icon)}</span><div class="main"><span class="t">${p.name}</span><span class="s">${p.text}</span></div>
+      <span class="acc">${n ? `<span class="check">${n}×</span>` : ""}</span></li>`;
+  }).join("");
+}
+function light(key, refused) { S.parts[key] = (S.parts[key] || 0) + 1; drawParts(key, refused); }
+
+/* ---------------- to-do list ---------------- */
 function drawTasks() {
-  const asked = S.question ? +((S.question.words.match(/^delete task (\d+)/) || [])[1] || 0) : 0;
   const live = new Set(S.tasks.map(t => t[0]));
-  const rows = S.tasks.map(([id, text]) => ({ id, text, gone: false }));
+  const rows = S.tasks.map(([id, text]) => ({ id, text }));
   S.start.forEach(([id, text]) => { if (!live.has(id)) rows.push({ id, text, gone: true }); });
   $("tasks").innerHTML = rows.map(r => {
     const planted = /NOTE TO ASSISTANT|IGNORE ALL RULES/i.test(r.text);
-    let cls = "task", tag = "";
-    if (r.gone) { cls += " gone"; tag = "deleted"; }
-    else if (r.id === asked) { cls += " asked"; tag = "waiting for your answer"; }
-    else if (S.kept.has(r.id)) { cls += " kept"; tag = "delete refused"; }
-    else if (S.added.has(r.id)) { cls += " added"; tag = "new"; }
-    if (planted && !r.gone) { cls += " planted"; tag = tag || "planted note: data, not an order"; }
-    return `<li class="${cls}"><span class="id">${r.id}</span><div><div class="t">${esc(r.text)}</div>${tag ? `<span class="tag">${esc(tag)}</span>` : ""}</div></li>`;
-  }).join("") || '<li class="task"><span class="id">–</span><div class="t">The list is empty.</div></li>';
-  $("tally").textContent = `${S.tasks.length} task${S.tasks.length === 1 ? "" : "s"}`;
+    let cls = "row", tag = "";
+    if (r.gone) { cls += " gone"; tag = '<span class="tag gone">Deleted</span>'; }
+    else if (r.id === S.asked) { cls += " asked"; tag = '<span class="tag asked">Asking you</span>'; }
+    else if (S.kept.has(r.id)) tag = '<span class="tag kept">Kept</span>';
+    else if (S.added.has(r.id)) tag = '<span class="tag new">New</span>';
+    else if (planted) tag = '<span class="tag note">Planted note</span>';
+    if (planted && !r.gone) cls += " planted";
+    return `<li class="${cls}"><span class="circle" aria-hidden="true">${r.gone ? "✓" : ""}</span><div class="main"><span class="t">${esc(r.text)}</span></div><span class="acc">${tag || `#${r.id}`}</span></li>`;
+  }).join("") || '<li class="row"><span></span><div class="main"><span class="s">No tasks.</span></div></li>';
+}
+function drawSeg() {
+  $("seg").innerHTML = Object.keys(S.seeds).map(k => `<button type="button" role="radio" aria-checked="${k === S.seed}" data-seed="${k}">${esc(LISTS[k] || S.seeds[k])}</button>`).join("");
+  $("seg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { if (b.dataset.seed !== S.seed) restore(b.dataset.seed, true); }));
 }
 
-/* ---------- timeline ---------- */
-function emptyState() {
-  $("timeline").innerHTML = `<li class="empty"><span class="eyebrow">How a run works</span><h3>Pick a goal on the left and press Run.</h3>
-    <div class="flow"><div><b>1 · Ask</b><span>The model reads your goal and asks for one action.</span></div>
-    <div><b>2 · Check</b><span>Code looks the tool up and checks its input.</span></div>
-    <div><b>3 · Gate</b><span>A delete waits for your yes. No answer means no.</span></div>
-    <div><b>4 · Decide</b><span>The run's status is set by code, never by the model's words.</span></div></div></li>`;
+/* ---------------- activity ---------------- */
+function ready() {
+  $("activity").innerHTML = `<li class="ready"><span class="big">${svg("sparkle").replace("<svg", '<svg width="28" height="28"')}</span><h3>Ready when you are</h3>
+    <p>Pick a suggestion above or type a goal. Each step shows up here as it happens.</p></li>`;
 }
-function item(kind, icon, title, meta, sub, extra) {
+function row(icon, tint, title, sub, acc, extra, extraCls) {
   const li = document.createElement("li");
-  li.className = `item new k-${kind}`;
-  li.innerHTML = `<span class="node" aria-hidden="true">${ICONS[icon] || ""}</span><div class="bd"><div class="hd"><span class="title">${title}</span>${meta ? `<span class="meta">${meta}</span>` : ""}</div>${sub ? `<div class="sub">${sub}</div>` : ""}${extra || ""}</div>`;
+  li.className = `row${reduced ? "" : " appear"}${extraCls ? " " + extraCls : ""}`;
+  li.innerHTML = `<span class="icon ${tint}">${icon}</span><div class="main"><span class="t">${title}</span>${sub ? `<span class="s">${sub}</span>` : ""}${extra || ""}</div><span class="acc">${acc || ""}</span>`;
   return li;
 }
-function append(li) {
-  const tl = $("timeline");
-  tl.querySelector(".empty")?.remove();
-  tl.querySelector(".k-think")?.remove();
-  if (li) tl.appendChild(li);
+function put(li) {
+  const list = $("activity");
+  list.querySelector(".ready")?.remove();
+  list.querySelector(".thinking")?.remove();
+  if (li) list.appendChild(li);
 }
+const ago = () => `${Math.max(0, Math.round((Date.now() - S.t0) / 1000))}s`;
 
 function onEvent(e) {
-  if (e.kind === "start") {
-    append(item("goal", "goal", esc(e.goal), e.model === "stand-in" ? "scripted stand-in model" : "Gemini", "A new run starts. The model will be shown this goal."));
-  } else if (e.kind === "thinking") {
-    lightPart("context");
-    append(item("think", "model", `Asking the model<span class="dots"><i></i><i></i><i></i></span>`, `shown ${e.lines} line${e.lines === 1 ? "" : "s"} of history`));
-  } else if (e.kind === "model") {
-    S.calls++; S.tin += e.tokens_in || 0; S.tout += e.tokens_out || 0;
-    lightPart("loop");
-    let d = null; try { d = JSON.parse(e.raw.slice(e.raw.indexOf("{"), e.raw.lastIndexOf("}") + 1)); } catch (x) {}
-    const title = d && "final" in d ? "Says it is finished"
-      : d && d.tool ? `Asks for <code>${esc(d.tool)}</code>${d.args && Object.keys(d.args).length ? ` <code>${esc(JSON.stringify(d.args))}</code>` : ""}` : "Replies with something unusable";
-    let meta = `step ${S.calls} · ${e.seconds}s${e.tokens_in != null ? ` · ${e.tokens_in}→${e.tokens_out} tokens` : ""}`;
-    if (e.attempts > 1) meta += ` · <span class="retry">retried ${e.attempts - 1}× (${esc(e.last_error || "busy")})</span>`;
-    const sub = d && "final" in d ? `“${esc(d.final)}”` : "";
-    append(item("model", "model", title, meta, sub, `<details><summary>raw reply</summary><div class="box">${esc(e.raw)}</div></details>`));
-  } else if (e.kind === "model_error") {
-    append(item("fail", "err", "The model could not be reached", "", esc(e.text)));
-  } else if (e.kind === "tool") {
-    lightPart("tools");
-    const m = e.ok && e.result.match(/^added task (\d+)/); if (m) S.added.add(+m[1]);
-    S.tasks = e.tasks;
-    const result = e.result.length > 220 ? e.result.slice(0, 220) + "…" : e.result;
-    append(e.ok
-      ? item("tool", "tool", `Code ran <code>${esc(e.call.split(" ")[0])}</code>`, esc(e.call.slice(e.call.indexOf(" ") + 1)), "", `<div class="box">${esc(result)}</div>`)
-      : item("err", "err", `Refused by the tool`, esc(e.call), `<b>${esc(e.result)}</b> · sent back to the model as data`));
-    drawTasks();
-  } else if (e.kind === "ask") {
-    lightPart("gates");
-    append(item("ask", "ask", "Waiting for your answer", "the gate", esc(e.words)));
-  } else if (e.kind === "gate") {
-    lightPart("gates", e.allowed ? "" : "gate-no");
-    const id = +((e.words.match(/^delete task (\d+)/) || [])[1] || 0);
-    if (!e.allowed) { S.refused++; if (id) S.kept.add(id); }
-    S.question = null; S.answered = false; closeDialog();
-    append(e.allowed
-      ? item("yes", "yes", "You allowed it", "the gate", esc(e.words))
-      : item("no", "no", e.reason === "timed out" ? "No answer, so no" : "You refused it", "the gate", `${esc(e.words)}. Nothing was deleted, and the model is told not to retry.`));
-    drawTasks();
-  } else if (e.kind === "end") {
-    lightPart("trace");
-    S.tasks = e.tasks; drawTasks();
-    append(null);
-    showOutcome(e);
+  switch (e.kind) {
+    case "start":
+      put(row(svg("flag"), "i-indigo", esc(e.goal), e.model === "stand-in" ? "Scripted stand-in model" : "Sent to Gemini", "0s"));
+      break;
+    case "thinking": {
+      light("context");
+      const spin = document.querySelector(".send .spinner").outerHTML;
+      put(row(spin, "i-gray", "Thinking…", `The model sees ${e.lines} line${e.lines === 1 ? "" : "s"} of history`, ago(), "", "thinking"));
+      break;
+    }
+    case "model": {
+      S.calls++; S.tokens += (e.tokens_in || 0) + (e.tokens_out || 0); light("loop");
+      let d = null; try { d = JSON.parse(e.raw.slice(e.raw.indexOf("{"), e.raw.lastIndexOf("}") + 1)); } catch (x) {}
+      const isFinal = d && "final" in d;
+      const title = isFinal ? "Says it's done"
+        : d && d.tool ? `Wants to ${toolVerb(d.tool, d.args)}` : "Gave a reply the harness can't use";
+      let sub = `Step ${S.calls} · ${e.seconds}s${e.tokens_in != null ? ` · ${e.tokens_in + e.tokens_out} tokens` : ""}`;
+      if (e.attempts > 1) sub += ` · <span class="retry">retried (${esc(e.last_error || "busy")})</span>`;
+      const extra = (isFinal ? `<div class="quote">${esc(d.final)}</div>` : "") + `<details><summary>Raw reply</summary><pre>${esc(e.raw)}</pre></details>`;
+      put(row(svg("bubble"), "i-blue", title, sub, ago(), extra));
+      break;
+    }
+    case "model_error":
+      put(row(svg("warn"), "i-red", "The model couldn't be reached", esc(e.text), ago()));
+      break;
+    case "tool": {
+      light("tools");
+      const m = e.ok && e.result.match(/^added task (\d+)/); if (m) S.added.add(+m[1]);
+      S.tasks = e.tasks; drawTasks();
+      const name = e.call.split(" ")[0];
+      put(e.ok
+        ? row(svg("wrench"), "i-green", toolDone(name, e.result), name === "list_tasks" ? `${e.tasks.length} tasks shown to the model` : esc(e.call), ago())
+        : row(svg("warn"), "i-orange", "The tool said no", `${esc(e.result.replace(/^error: /, ""))}. The model is told, as data.`, ago()));
+      break;
+    }
+    case "ask":
+      light("gates");
+      put(row(svg("hand"), "i-orange", "Waiting for you", esc(e.words), ago()));
+      break;
+    case "gate": {
+      const id = +((e.words.match(/^delete task (\d+)/) || [])[1] || 0);
+      S.asked = 0; S.question = null; S.answered = false; closeAlert();
+      if (!e.allowed) { S.refused++; if (id) S.kept.add(id); }
+      light("gates", !e.allowed);
+      put(e.allowed
+        ? row(svg("check"), "i-green", "You said yes", esc(e.words), ago())
+        : row(svg("xmark"), "i-red", e.reason === "timed out" ? "No answer, so it was kept" : "You said no", `${esc(e.words)}. Nothing was deleted.`, ago(), "", "r-no"));
+      drawTasks();
+      break;
+    }
+    case "end":
+      light("trace");
+      S.tasks = e.tasks; drawTasks(); put(null); showResult(e);
+      break;
   }
-  $("stepcount").textContent = S.calls ? `${S.calls} model call${S.calls === 1 ? "" : "s"}` : "";
+  $("stepcount").textContent = S.calls ? `${S.calls} step${S.calls === 1 ? "" : "s"}` : "";
+}
+function toolVerb(tool, args) {
+  args = args || {};
+  if (tool === "list_tasks") return "see the list";
+  if (tool === "add_task") return `add “${esc(args.text || "")}”`;
+  if (tool === "delete_task") return `delete task ${esc(args.id)}`;
+  return `use ${esc(tool)}`;
+}
+function toolDone(name, result) {
+  if (name === "list_tasks") return "Showed the list";
+  if (/^added task/.test(result)) return `Added task ${result.split(" ").pop()}`;
+  if (/^deleted task/.test(result)) return `Deleted task ${result.split(" ").pop()}`;
+  return esc(result);
 }
 
-function showOutcome(e) {
+function showResult(e) {
   const s = e.status;
-  const cls = s === "done" ? "s-done" : s === "done-with-denials" ? "s-denials" : "s-stopped";
-  const headline = { "done": "Finished", "done-with-denials": "Finished, with refusals", "step-limit": "Stopped: too many steps",
-    "loop-detected": "Stopped: it kept repeating itself", "denied-limit": "Stopped: too many refusals", "model-error": "Stopped: the model failed",
-    "setup-error": "Could not start" }[s] || "Stopped";
-  const why = s === "done-with-denials" ? "Code marked the refusals, whatever the model said."
-    : s === "done" ? "Anything deleted was deleted only after your yes."
-    : s === "setup-error" ? esc(e.answer)
-    : "The harness ended the run instead of letting it spin.";
-  const secs = ((Date.now() - S.t0) / 1000).toFixed(0);
-  $("outcome").innerHTML = `<div class="outcome ${cls}">
-    <div class="band"><span class="pill">status: ${esc(s)}</span><h3>${headline}</h3><p>${why}</p>
-      ${s !== "setup-error" ? `<p class="said">The model's last words: “${esc(e.answer)}”</p>` : ""}</div>
-    <div class="stats"><div><b>${S.calls}</b><span>model calls</span></div><div><b>${S.tin + S.tout}</b><span>tokens</span></div>
-      <div><b>${S.refused}</b><span>refused</span></div><div><b>${secs}s</b><span>total time</span></div></div>
-    ${e.handover ? `<p class="handover">Hand-over note: ${esc(e.handover)}</p>` : ""}</div>`;
-  $("outcome").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
+  const look = s === "done" ? ["i-green", "shield", "Done"] : s === "done-with-denials" ? ["i-orange", "shield", "Done, with your no"]
+    : s === "setup-error" ? ["i-red", "warn", "Couldn't start"] : ["i-red", "stop", {
+      "step-limit": "Stopped: too many steps", "loop-detected": "Stopped: it was repeating itself",
+      "denied-limit": "Stopped: too many refusals", "model-error": "Stopped: the model failed" }[s] || "Stopped"];
+  const why = s === "done-with-denials" ? "You refused at least one action, and the harness recorded it. The status comes from code, not from what the model says."
+    : s === "done" ? "Everything it needed was allowed. Any delete ran only after your yes."
+    : s === "setup-error" ? esc(e.answer) : "The harness stopped the run on purpose instead of letting it go on.";
+  const secs = Math.round((Date.now() - S.t0) / 1000);
+  $("result").innerHTML = `<div class="card result" style="margin-top:14px">
+    <span class="badge ${look[0]}">${svg(look[1])}</span>
+    <h3>${look[2]}</h3><p class="why">${why}</p>
+    ${s !== "setup-error" ? `<div class="said"><span>The model's last words</span>${esc(e.answer)}</div>` : ""}
+    <div class="tiles"><div class="tile"><b>${S.calls}</b><span>steps</span></div><div class="tile"><b>${S.tokens}</b><span>tokens</span></div>
+      <div class="tile"><b>${S.refused}</b><span>refused</span></div><div class="tile"><b>${secs}s</b><span>time</span></div></div>
+    ${e.handover ? `<p class="note">Note for a person: ${esc(e.handover)}</p>` : ""}
+    <div class="actions"><button class="btn filled" type="button" id="again">Try another goal</button><button class="btn" type="button" id="fresh">Reset list</button></div></div>`;
+  $("again").addEventListener("click", () => { $("goal").value = ""; grow(); count(); syncSend(); $("goal").focus(); window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" }); });
+  $("fresh").addEventListener("click", () => restore(S.seed, true));
+  $("result").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "nearest" });
 }
 
-/* ---------- approval dialog ---------- */
+/* ---------------- the alert ---------------- */
 const dlg = $("dlg");
-function openDialog(q) {
-  if (S.answered) return;            // already answered; the server has not caught up yet
-  S.question = q; drawTasks();
-  $("dlg-what").textContent = q.words.replace(/^delete task (\d+): /, "Task $1: ");
-  tick(q.seconds_left);
+function openAlert(q) {
+  if (S.answered || (S.question && dlg.open)) return;
+  S.question = q;
+  const m = q.words.match(/^delete task (\d+): "(.*)"$/);
+  S.asked = m ? +m[1] : 0; drawTasks();
+  $("dlg-title").textContent = m ? `Delete “${m[2]}”?` : `Allow “${q.words}”?`;
+  S.deadline = Date.now() + q.seconds_left * 1000;
+  clearInterval(S.tick); S.tick = setInterval(countdown, 250); countdown();
   if (!dlg.open) { dlg.showModal(); $("dlg-no").focus(); }
 }
-function tick(left) {
-  $("ringtxt").textContent = left;
-  $("ringprog").style.strokeDashoffset = String(157.08 * (1 - left / S.timeout));
+function countdown() {
+  const left = Math.max(0, Math.ceil((S.deadline - Date.now()) / 1000));
+  $("dlg-timer").textContent = `Kept automatically in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  $("dlg-meter").style.transform = `scaleX(${left / S.timeout})`;
 }
-function closeDialog() { if (dlg.open) dlg.close("handled"); }
+function closeAlert() { clearInterval(S.tick); if (dlg.open) dlg.close("handled"); }
 dlg.addEventListener("close", () => {
-  const v = dlg.returnValue; dlg.returnValue = "";
+  const v = dlg.returnValue; dlg.returnValue = ""; clearInterval(S.tick);
   if (v === "handled" || !S.question) return;
-  S.answered = true;
-  answer(v === "yes");               // Esc or closing gives "" here, which is a no
+  S.answered = true;                                   // Esc and closing return "", which is a no
+  api("/api/answer", { sid: S.sid, allow: v === "yes" }).catch(err => tip(err.message, true));
 });
-async function answer(allow) {
-  try { await api("/api/answer", { sid: S.sid, allow }); } catch (err) { say(err.message, true); }
+
+/* ---------------- long polling ---------------- */
+async function follow() {
+  if (S.polling) return;
+  S.polling = true;
+  let failures = 0;
+  while (S.running) {
+    try {
+      const d = await api(`/api/poll?sid=${encodeURIComponent(S.sid)}&since=${S.since}&wait=1`);
+      failures = 0;
+      d.events.forEach(onEvent);
+      S.since += d.events.length;
+      if (d.question) openAlert(d.question);
+      if (!d.running) { S.running = false; break; }
+    } catch (err) {
+      if (++failures >= 4) { tip(err.message, true); S.running = false; break; }
+      await new Promise(r => setTimeout(r, 800 * failures));
+    }
+  }
+  S.polling = false; busy(false);
+}
+function busy(b) {
+  S.running = b;
+  $("send").classList.toggle("busy", b); syncSend();
+  $("restore").disabled = b;
+  document.querySelectorAll(".pill, .seg button").forEach(x => x.disabled = b);
+  if (!b && !$("tip").classList.contains("err")) tip(`${S.runsLeft} run${S.runsLeft === 1 ? "" : "s"} left in this visit.`);
 }
 
-/* ---------- polling ---------- */
-async function poll() {
-  try {
-    const d = await api(`/api/poll?sid=${encodeURIComponent(S.sid)}&since=${S.since}`);
-    d.events.forEach(onEvent);
-    S.since += d.events.length;
-    if (d.question) openDialog(d.question); else if (S.question) { S.question = null; closeDialog(); drawTasks(); }
-    if (!d.running) { stop(); setBusy(false); say(""); }
-  } catch (err) { say(err.message, true); stop(); setBusy(false); }
-}
-function stop() { clearInterval(S.timer); S.timer = null; }
-function setBusy(b) {
-  S.running = b; $("runbtn").disabled = b; $("restore").disabled = b;
-  document.querySelectorAll(".listopt, .ex").forEach(x => x.disabled = b);
-}
-
-/* ---------- actions ---------- */
-async function run(goal) {
-  goal = goal.trim();
-  if (!goal) { say("Type a goal first, or pick one below.", true); $("goal").focus(); return; }
-  setBusy(true); say("Starting…");
-  Object.assign(S, { calls: 0, tin: 0, tout: 0, refused: 0, t0: Date.now(), kept: new Set() });
-  $("timeline").innerHTML = ""; $("outcome").innerHTML = ""; $("stepcount").textContent = ""; resetMap();
+/* ---------------- actions ---------------- */
+async function run() {
+  const goal = $("goal").value.trim();
+  if (!goal || S.running) return;
+  Object.assign(S, { calls: 0, tokens: 0, refused: 0, t0: Date.now(), kept: new Set(), parts: {}, asked: 0, answered: false });
+  $("activity").innerHTML = ""; $("result").innerHTML = ""; $("stepcount").textContent = ""; drawParts();
+  busy(true); tip("Working on it…");
   try {
     const d = await api("/api/run", { sid: S.sid, goal });
-    S.runsLeft = d.runs_left; drawRuns(); say("");
-    if (matchMedia("(max-width: 760px)").matches) document.querySelector(".tl-card").scrollIntoView({ block: "start" });
-    S.timer = setInterval(poll, 650); poll();
-  } catch (err) { say(err.message, true); setBusy(false); emptyState(); }
+    S.runsLeft = d.runs_left; drawRuns();
+    if (matchMedia("(max-width: 980px)").matches) document.querySelector(".o-activity").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    follow();
+  } catch (err) { busy(false); tip(err.message, true); ready(); }
 }
-async function restore(seed) {
+async function restore(seed, announce) {
   try {
     const d = await api("/api/reset", { sid: S.sid, seed });
-    Object.assign(S, { seed: d.seed, start: d.tasks, tasks: d.tasks, added: new Set(), kept: new Set(), question: null });
-    drawLists(); drawTasks(); $("outcome").innerHTML = ""; $("stepcount").textContent = ""; emptyState(); resetMap(); say("");
-  } catch (err) { say(err.message, true); }
+    Object.assign(S, { seed: d.seed, start: d.tasks, tasks: d.tasks, added: new Set(), kept: new Set(), asked: 0, parts: {} });
+    drawSeg(); drawTasks(); drawParts(); $("result").innerHTML = ""; $("stepcount").textContent = ""; ready();
+    if (announce) toast(seed === "trap" ? "Switched to the list with a planted note" : "List reset");
+  } catch (err) { tip(err.message, true); }
 }
-function drawLists() {
-  $("lists").innerHTML = Object.entries(S.seeds).map(([k, label]) =>
-    `<button class="listopt" type="button" role="radio" aria-checked="${k === S.seed}" data-seed="${k}"><b>${esc(label)}</b><span>${esc(LIST_HELP[k] || "")}</span></button>`).join("");
-  $("lists").querySelectorAll(".listopt").forEach(b => b.addEventListener("click", () => { if (b.dataset.seed !== S.seed) restore(b.dataset.seed); }));
-}
-function drawExamples() {
-  $("examples").innerHTML = EXAMPLES.map(g => `<div class="exgroup"><span class="eyebrow">${esc(g.group)}</span>${g.items.map(x =>
-    `<button class="ex" type="button" data-goal="${esc(x.goal)}" data-seed="${x.seed || ""}"><b>${esc(x.goal)}</b><span>${esc(x.why)}</span></button>`).join("")}</div>`).join("");
-  $("examples").querySelectorAll(".ex").forEach(b => b.addEventListener("click", async () => {
-    $("goal").value = b.dataset.goal; count();
-    if (b.dataset.seed && b.dataset.seed !== S.seed) { await restore(b.dataset.seed); say("Switched to the list with a planted note."); }
+function drawRuns() { $("runs").textContent = `${S.runsLeft} run${S.runsLeft === 1 ? "" : "s"} left`; }
+function drawPills() {
+  $("pills").innerHTML = SUGGEST.map((x, i) => `<button class="pill ${x.kind}" type="button" role="listitem" data-i="${i}"><i aria-hidden="true"></i>${esc(x.goal)}</button>`).join("");
+  $("pills").querySelectorAll(".pill").forEach(b => b.addEventListener("click", async () => {
+    const x = SUGGEST[+b.dataset.i];
+    $("goal").value = x.goal; grow(); count(); syncSend(); tip(x.tip);
+    if (x.seed && x.seed !== S.seed) await restore(x.seed, true);
     $("goal").focus();
   }));
 }
-function drawRuns() { $("runschip").textContent = `${S.runsLeft} run${S.runsLeft === 1 ? "" : "s"} left`; }
-function count() { const n = $("goal").value.length; $("counter").textContent = `${n} / 200`; $("counter").classList.toggle("over", n >= 200); }
 
-$("goalform").addEventListener("submit", ev => { ev.preventDefault(); if (!S.running) run($("goal").value); });
-$("goal").addEventListener("input", count);
-$("goal").addEventListener("keydown", ev => { if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); $("goalform").requestSubmit(); } });
-$("restore").addEventListener("click", () => restore(S.seed));
+$("form").addEventListener("submit", ev => { ev.preventDefault(); run(); });
+$("goal").addEventListener("input", () => { grow(); count(); syncSend(); });
+$("goal").addEventListener("keydown", ev => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); run(); } });
+$("restore").addEventListener("click", () => restore(S.seed, true));
+addEventListener("scroll", () => $("nav").classList.toggle("scrolled", scrollY > 60), { passive: true });
 
-async function init() {
-  drawMap(); drawExamples(); emptyState(); count();
+(async function init() {
+  drawPills(); drawParts(); ready();
   try {
     const d = await api("/api/session", { seed: "week_start" });
     Object.assign(S, { sid: d.sid, seed: d.seed, seeds: d.seeds, start: d.tasks, tasks: d.tasks, runsLeft: d.runs_left, timeout: d.approval_timeout });
     const live = d.model !== "stand-in";
-    $("modelchip").className = `chip ${live ? "live" : "standin"}`;
-    $("modelchip").innerHTML = `<span class="dot"></span><span>${live ? "Gemini · live" : "stand-in model · no AI"}</span>`;
-    drawRuns(); drawLists(); drawTasks();
-  } catch (err) { say(err.message, true); }
-}
-init();
+    $("model").className = `capsule ${live ? "live" : "standin"}`;
+    $("model").innerHTML = `<span class="dot"></span><span>${live ? "Gemini" : "Demo model"}</span>`;
+    drawRuns(); drawSeg(); drawTasks();
+  } catch (err) { tip(err.message, true); }
+})();
 </script>
 </body>
 </html>
