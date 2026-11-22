@@ -12,12 +12,12 @@ What to look at, and why each piece is here (line numbers are for this file as s
         being asked to approve.
     main (line 71)
         Loads memory first: a saved file wins, and the seed is only the very first start (78). Unless --quiet,
-        it wraps the model, tools and approver so a live log prints while the run goes (101). Then it picks the
-        engine (105), wires the checkpoint hook that saves after every change (115), runs, and prints the
-        trace (121).
-    Exit codes (line 130; setup problems at 87)
+        it wraps the model, tools and approver so a live log prints while the run goes (103), and hands the trace
+        export the real system prompt and a session id for this task list (107). Then it picks the engine (109),
+        wires the checkpoint hook that saves after every change (119), runs, and prints the trace (125).
+    Exit codes (line 134; setup problems at 86 and 95)
         0 finished, 1 stopped early, 2 a setup problem, so a script can tell the three apart.
-    Reading .env (line 134)
+    Reading .env (line 138)
         Only the command line does it, so tests that call main() stay predictable.
 
 Examples:
@@ -86,6 +86,7 @@ def main(argv=None, *, model=None, input_fn=input, out=print) -> int:
         out(f"configuration error: {err}")
         return 2
 
+    system_prompt = None                         # only a real model has one; the trace export shows it on every model call
     if model is None:
         import llm
         try:
@@ -93,6 +94,7 @@ def main(argv=None, *, model=None, input_fn=input, out=print) -> int:
         except RuntimeError as err:
             out(f"configuration error: {err}")
             return 2
+        system_prompt = llm.build_system_prompt(ALL_TOOLS, naive=args.naive_prompt)
 
     limits = dict(max_steps=args.max_steps, max_result_chars=args.max_result_chars)
     common = dict(model=model, tools=ALL_TOOLS, state=state, approve=make_approver(args.approve, input_fn, out),
@@ -100,8 +102,10 @@ def main(argv=None, *, model=None, input_fn=input, out=print) -> int:
     tracer = None
     if args.export or not args.quiet:            # the live log and --export both wrap the model, tools and approver
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "extras"))
-        from trace_export import ListSink, Tracer, choose_sink, run_traced
-        tracer = Tracer(choose_sink(args.export) if args.export else ListSink(), log=None if args.quiet else out)
+        from trace_export import ListSink, Tracer, choose_sink, run_traced, state_session_id
+        # Runs on the same state file share one Langfuse session, so the viewer can replay how that list changed.
+        tracer = Tracer(choose_sink(args.export) if args.export else ListSink(), log=None if args.quiet else out,
+                        system_prompt=system_prompt, session_id=state_session_id(args.state))
     if args.engine == "langgraph":
         if args.max_history is not None:
             out("note: --max-history is not used by the langgraph engine")

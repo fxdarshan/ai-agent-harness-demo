@@ -10,9 +10,14 @@ What to look at
     Tracer          wrap_model(), wrap_tools() and wrap_approve() report each call as a span. If the exporter
                     fails, it warns once and the run carries on unchanged, so a broken viewer never breaks the agent.
     MAX_TEXT, _cut  every input and output is cut to MAX_TEXT characters before it leaves the program, so a run
-                    cannot leak too much.
+                    cannot leak too much. The one exception is what the model was shown (MAX_PROMPT_TEXT): a generation
+                    is only useful in the viewer if you can read the exact prompt that led to each decision.
+    _prompt()       records each model call's input as chat messages (system, then user), the way the model saw it.
     choose_sink()   picks Langfuse when its keys and package are present, and falls back to printing the tree here.
     run_traced()    runs an engine exactly as before under one "run" span, and returns the same RunResult.
+    state_session_id()
+                    groups every run on the same saved task list into one Langfuse session, so you can replay how a
+                    list changed across runs (memory, Phase 4). The id is a hash: your folder names never leave.
     Tracer(log=...) the live log (on by default; --quiet turns it off): the same wrappers also write one line per model reply, tool call
                     and approval while the run is going, through the callable you pass (print, or agent.py's out).
 
@@ -21,6 +26,7 @@ PRIVACY: spans carry prompts and task text. Send only toy data to a hosted viewe
 Standard library only. The Langfuse package is optional and imported lazily, so the rest of the repo needs no install.
 """
 import dataclasses
+import hashlib
 import json
 import os
 import sys
@@ -31,13 +37,27 @@ from typing import Any, Callable
 from harness import RunResult, Tool, run
 from tools import State
 
-MAX_TEXT = 500  # every input and output is cut to this many characters before it is exported
+MAX_TEXT = 500          # every input and output is cut to this many characters before it is exported...
+MAX_PROMPT_TEXT = 8000  # ...except each message the model was shown: a cut prompt hides why the model decided what it did
+DEFAULT_ENVIRONMENT = "development"   # Langfuse environment for these runs; set LANGFUSE_TRACING_ENVIRONMENT to change it
 
 
-def _cut(value: Any) -> Any:
-    """Return a short, safe version of a value. Strings and JSON-like values are cut to MAX_TEXT characters."""
+def _cut(value: Any, limit: int = MAX_TEXT) -> Any:
+    """Return a short, safe version of a value. Strings and JSON-like values are cut to `limit` characters."""
     text = value if isinstance(value, str) else json.dumps(value, default=str, sort_keys=True)
-    return text if len(text) <= MAX_TEXT else text[:MAX_TEXT] + " [cut]"
+    return text if len(text) <= limit else text[:limit] + " [cut]"
+
+
+def _prompt(history: list[str], system_prompt: str | None) -> list[dict[str, str]]:
+    """A model call's input as role-labelled chat messages, exactly as llm.py sends them: system, then the history as one user message."""
+    messages = [{"role": "system", "content": _cut(system_prompt, MAX_PROMPT_TEXT)}] if system_prompt else []
+    return messages + [{"role": "user", "content": _cut("\n".join(history), MAX_PROMPT_TEXT)}]
+
+
+def state_session_id(state_path: str) -> str:
+    """A stable, private session id for one saved task list: runs on the same file share it, and the path itself never leaves."""
+    digest = hashlib.sha256(os.path.abspath(state_path).encode("utf-8")).hexdigest()[:12]
+    return f"todo-list-{digest}"
 
 
 def _line(text: str) -> str:
@@ -74,8 +94,8 @@ def _last_call() -> dict[str, Any]:
 class _Span:
     """One recorded step, kept in memory. Used by ListSink (tests) and ConsoleSink (the terminal)."""
 
-    def __init__(self, kind: str, name: str, input: Any, depth: int):
-        self.kind, self.name, self.input, self.depth = kind, name, input, depth
+    def __init__(self, kind: str, name: str, input: Any, depth: int, session_id: str | None = None):
+        self.kind, self.name, self.input, self.depth, self.session_id = kind, name, input, depth, session_id
         self.output: Any = None
         self.seconds: float | None = None
 
@@ -94,8 +114,8 @@ class ListSink:
         self._depth = 0
 
     @contextmanager
-    def span(self, kind: str, name: str, input: Any):
-        record = _Span(kind, name, input, self._depth)
+    def span(self, kind: str, name: str, input: Any, session_id: str | None = None):
+        record = _Span(kind, name, input, self._depth, session_id)
         self.spans.append(record)
         self._depth += 1
         start = time.perf_counter()
@@ -136,6 +156,10 @@ def langfuse_sink() -> Any | None:
         from langfuse import get_client, propagate_attributes
     except ImportError:
         return None
+    # Demo runs are labelled "development" so they never mix with real traffic in shared dashboards; your shell or
+    # .env wins if it sets LANGFUSE_TRACING_ENVIRONMENT (lowercase letters, digits, - and _ only).
+    os.environ.setdefault("LANGFUSE_TRACING_ENVIRONMENT", DEFAULT_ENVIRONMENT)
+    os.environ.setdefault("OTEL_SERVICE_NAME", "todo-agent")   # otherwise every span says "unknown_service:python"
     try:
         client = get_client()
     except Exception:                      # a bad key or setup must not stop the run: fall back to the console
@@ -146,10 +170,10 @@ def langfuse_sink() -> Any | None:
 
     class LangfuseSink:
         @contextmanager
-        def span(self, kind: str, name: str, input: Any):
+        def span(self, kind: str, name: str, input: Any, session_id: str | None = None):
             with client.start_as_current_observation(name=name, as_type=as_type.get(kind, "span"), input=input) as observation:
-                if kind == "run":                  # a readable trace name and a tag you can filter on in the viewer
-                    with propagate_attributes(trace_name="todo-agent run", tags=["todo-agent"]):
+                if kind == "run":                  # a readable trace name, a tag to filter on, and the session it belongs to
+                    with propagate_attributes(trace_name="todo-agent run", tags=["todo-agent"], session_id=session_id):
                         yield observation
                 else:
                     yield observation
@@ -183,9 +207,12 @@ def choose_sink(name: str) -> Any:
 class Tracer:
     """Wraps what the harness already takes as arguments, and reports each call to a sink."""
 
-    def __init__(self, sink: Any, log: Callable[[str], Any] | None = None):
+    def __init__(self, sink: Any, log: Callable[[str], Any] | None = None, *,
+                 system_prompt: str | None = None, session_id: str | None = None):
         self.sink = sink
         self.log = log              # where live lines go (the live log); None keeps the run silent until it ends
+        self.system_prompt = system_prompt   # the instructions the model reads (llm.build_system_prompt); None for fake models
+        self.session_id = session_id         # groups runs on the same task list (state_session_id); None = no session
         self._warned = False
         self.retries = 0            # model-call retries seen so far (hidden inside llm.py otherwise)
         self.calls = 0              # model calls so far in this run: the step number on every live line
@@ -277,7 +304,10 @@ class Tracer:
         """Open a span; if the sink fails to open or close it, the wrapped call still runs normally."""
         manager = span = None
         try:
-            manager = self.sink.span(kind, name, _cut(input))
+            # A model call's input is already a list of cut messages (_prompt); everything else is cut here.
+            safe = input if kind == "model" else _cut(input)
+            session = {"session_id": self.session_id} if kind == "run" and self.session_id else {}
+            manager = self.sink.span(kind, name, safe, **session)
             span = manager.__enter__()
         except Exception as err:
             self._warn(err)
@@ -292,11 +322,14 @@ class Tracer:
                     self._warn(err)
 
     def wrap_model(self, model: Callable[[list[str]], dict]) -> Callable[[list[str]], dict]:
-        """One "model" span per model call: how many lines it was shown, the last line, and what it decided."""
+        """One "model" span (a Langfuse generation) per model call: the exact prompt it was shown, and what it decided."""
         def traced(history: list[str]) -> dict:
             """Call the model inside a span, and write its live lines (before the call and after it)."""
             self.calls += 1                        # raised before the call, so a failed call still has its own step
-            with self.span("model", f"model call {self.calls}", {"lines_shown": len(history), "last": history[-1] if history else ""}) as sp:
+            # The name stays the same on every call (Langfuse groups, filters and evaluates by name); the step number
+            # and the history size go in metadata instead.
+            where = {"step": self.calls, "lines_shown": len(history)}
+            with self.span("model", "decide-next-step", _prompt(history, self.system_prompt)) as sp:
                 try:
                     import llm
                     llm.last_call.clear()          # so a fake model never inherits facts from an earlier call
@@ -310,6 +343,7 @@ class Tracer:
                 except Exception as err:
                     # Read the facts once: _call_facts adds to self.retries, so a second read would double the score.
                     facts, extra = _last_call(), self._call_facts_error()
+                    extra["metadata"] = {**where, **extra.get("metadata", {})}
                     self._set(sp, f"error: {err}", level="ERROR", status_message=str(err)[:200], **extra)
                     self._say_reask(facts)
                     retry = _retry_words(facts) if facts.get("attempts", 1) > 1 else ""
@@ -319,7 +353,7 @@ class Tracer:
                 facts, extra = _last_call(), self._call_facts()
                 bad = not isinstance(decision, dict) or not ({"tool", "final"} & set(decision))
                 # Langfuse shows what the model actually said (the raw text); the parsed decision rides along as metadata.
-                meta = {**extra.get("metadata", {}), "decision": _cut(decision)}
+                meta = {**where, **extra.get("metadata", {}), "decision": _cut(decision)}
                 self._set(sp, facts.get("raw") or decision, **{**extra, "metadata": meta},
                           **({"level": "ERROR", "status_message": "malformed model output"} if bad else {}))
                 self._say_model(decision, facts, seconds)
@@ -407,9 +441,12 @@ def run_traced(goal: str, tracer: Tracer, *, model: Callable, tools: list[Tool],
         result = engine(goal, model=tracer.wrap_model(model), tools=tracer.wrap_tools(tools), state=state,
                      approve=tracer.wrap_approve(approve), **limits)
         finished = result.status in ("done", "done-with-denials")
-        tracer._set(sp, {"status": result.status, "answer": result.answer, "steps": steps_used(result), "denials": result.denials},
+        # The run's output becomes the trace output in Langfuse's table: what a reviewer needs at a glance is the answer
+        # (or, for a run that stopped early, the hand-over note). The counts ride along as metadata.
+        tracer._set(sp, result.answer or result.handover or f"(no answer, status {result.status})",
                     **({} if finished else {"level": "ERROR", "status_message": result.handover[:300]}),
-                    metadata={"engine": engine.__name__, "status": result.status, "denials": result.denials, "model_retries": tracer.retries})
+                    metadata={"engine": engine.__name__, "status": result.status, "steps": steps_used(result),
+                              "denials": result.denials, "model_retries": tracer.retries})
         tracer.score_run(result, finished)             # small numbers you can filter and chart in the viewer
     # Stops such as the repeat check or the step cap are decided inside the engine, so the trace's last line says why.
     last = result.trace[-1].detail if result.trace else ""     # a custom engine may return an empty trace

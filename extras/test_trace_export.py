@@ -255,7 +255,7 @@ class ExportTests(unittest.TestCase):
         self.assertIn("status=model-error", odd[-1])
 
     def test_the_viewer_gets_the_raw_reply_and_readable_names(self):
-        """A model span carries the raw text as its output, the parsed decision and any first invalid reply as metadata, and a numbered name."""
+        """A model span carries the raw text as its output, the parsed decision, any first invalid reply and its step number as metadata, and a stable name."""
         import llm
 
         def model(history):
@@ -264,10 +264,60 @@ class ExportTests(unittest.TestCase):
         sink = ListSink()
         run_traced("x", Tracer(sink), model=model, tools=ALL_TOOLS, state=new_state())
         span = next(s for s in sink.spans if s.kind == "model")
-        self.assertEqual(span.name, "model call 1")
+        self.assertEqual(span.name, "decide-next-step")      # the same name on every call: no step number in it
+        self.assertEqual(span.extra["metadata"]["step"], 1)
         self.assertIn("```json", span.output)
         self.assertEqual(span.extra["metadata"]["first_raw"], "Sure!")
         self.assertIn('"final"', span.extra["metadata"]["decision"])
+
+    def test_model_spans_record_the_prompt_as_chat_messages(self):
+        """Each model span's input is what the model saw: the system prompt (when known), then the history as one user message."""
+        sink = ListSink()
+        plan = [call("list_tasks"), {"final": "ok"}]
+        run_traced("show", Tracer(sink, system_prompt="You are a to-do list assistant."), model=scripted(plan),
+                   tools=ALL_TOOLS, state=new_state())
+        first, second = [s for s in sink.spans if s.kind == "model"]
+        self.assertEqual(first.input, [{"role": "system", "content": "You are a to-do list assistant."},
+                                       {"role": "user", "content": "user: show"}])
+        self.assertEqual(second.input[1]["content"].splitlines()[0], "user: show")
+        self.assertGreater(len(second.input[1]["content"].splitlines()), 1)     # the tool result is in the next prompt
+        self.assertEqual([s.name for s in sink.spans if s.kind == "model"], ["decide-next-step"] * 2)
+        unknown = ListSink()                                                    # a fake model: no system prompt to show
+        run_traced("show", Tracer(unknown), model=scripted([{"final": "ok"}]), tools=ALL_TOOLS, state=new_state())
+        self.assertEqual([m["role"] for m in unknown.spans[1].input], ["user"])
+
+    def test_a_long_prompt_is_cut_at_the_prompt_limit(self):
+        """The prompt gets a bigger budget than other text (MAX_PROMPT_TEXT), but it is still cut before it leaves."""
+        from trace_export import MAX_PROMPT_TEXT
+        sink = ListSink()
+        run_traced("g" * (MAX_PROMPT_TEXT * 2), Tracer(sink), model=scripted([{"final": "ok"}]), tools=ALL_TOOLS, state=new_state())
+        content = sink.spans[1].input[0]["content"]
+        self.assertTrue(content.endswith(" [cut]"))
+        self.assertEqual(len(content), MAX_PROMPT_TEXT + len(" [cut]"))
+
+    def test_runs_on_the_same_task_list_share_a_private_session(self):
+        """The run span carries the session id; the same state file gives the same id, and the id never shows the path."""
+        from trace_export import state_session_id
+        sid = state_session_id(os.path.join("some", "private", "tasks.json"))
+        self.assertEqual(sid, state_session_id(os.path.join("some", "private", "tasks.json")))
+        self.assertNotEqual(sid, state_session_id("other.json"))
+        self.assertNotIn("private", sid)
+        sink = ListSink()
+        run_traced("x", Tracer(sink, session_id=sid), model=scripted([call("list_tasks"), {"final": "ok"}]), tools=ALL_TOOLS,
+                   state=new_state())
+        self.assertEqual(sink.spans[0].session_id, sid)
+        self.assertTrue(all(s.session_id is None for s in sink.spans[1:]))     # set once on the run; Langfuse passes it down
+
+    def test_the_run_output_is_the_answer(self):
+        """The run span's output (the trace output in the viewer) is the answer, also for a run that stopped early."""
+        sink = ListSink()
+        run_traced("x", Tracer(sink), model=scripted([{"final": "all done"}]), tools=ALL_TOOLS, state=new_state())
+        self.assertEqual(sink.spans[0].output, "all done")
+        self.assertEqual(sink.spans[0].extra["metadata"]["steps"], 1)
+        stopped = ListSink()
+        result = run_traced("x", Tracer(stopped), model=lambda h: {"oops": 1}, tools=ALL_TOOLS, state=new_state())
+        self.assertEqual(stopped.spans[0].output, result.answer)
+        self.assertIn("model-error", stopped.spans[0].extra["status_message"])   # the hand-over note says why
 
     def test_without_a_log_nothing_is_printed_and_spans_are_unchanged(self):
         """With log=None the run prints nothing, and the spans and scores match a run with a log."""
